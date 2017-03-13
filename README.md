@@ -40,7 +40,7 @@ bboxManager.startLookingForBbox(context, new MyBboxManager.CallbackBboxFound() {
         });
 ```
 
-get curent chanel : 
+get current channel : 
 ```java
 Bbox.getInstance().getCurrentChannel(bbox.getIp(), getResources().getString(APP_ID),
 getResources().getString(APP_SECRET),
