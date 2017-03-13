@@ -6,18 +6,24 @@ This is the basic SDK for your own application if you want to make use of BboxAP
 
 1 -jar file
 clone the depot and build
-add **bboxapi-debug.aar** to your lib folder of your project
+add **bboxapi-library-1.0-release.aar** to your lib folder of your project
 add this line to your gradle dependencies  
 ````
 compile(name: 'bboxapi-debug', ext: 'aar')
 ````
 2 -maven
-
-TODO
-
+````
+<dependency>
+  <groupId>fr.bouyguestelecom.dev</groupId>
+  <artifactId>bboxapi</artifactId>
+  <version>1.0</version>
+  <type>pom</type>
+</dependency>
+````
 3 -jcenter
-
-TODO
+````
+compile 'fr.bouyguestelecom.dev:bboxapi:1.0'
+````
 ### Prerequisites
 
 you need *app_id* and *app_secret* for some request
