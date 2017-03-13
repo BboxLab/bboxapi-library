@@ -12,8 +12,11 @@ add this line to your gradle dependencies
 compile(name: 'bboxapi-debug', ext: 'aar')
 ````
 2 -maven
+
 TODO
+
 3 -jcenter
+
 TODO
 ### Prerequisites
 

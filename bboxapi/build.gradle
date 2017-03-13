@@ -1,4 +1,6 @@
 apply plugin: 'com.android.library'
+apply plugin: 'com.github.dcendents.android-maven'
+apply plugin: 'com.jfrog.bintray'
 
 android {
     compileSdkVersion 23
@@ -16,6 +18,15 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
         }
     }
+
+    android.libraryVariants.all { variant ->
+        variant.outputs.each { output ->
+            output.outputFile =
+                    new File(output.outputFile.parent,
+                            output.outputFile.name.replace("bboxapi-", "bboxapi-library-" + defaultConfig.versionName + "-"))
+        }
+    }
+
     lintOptions {
         abortOnError false
     }
@@ -25,4 +36,104 @@ dependencies {
     compile 'org.java-websocket:Java-WebSocket:1.3.0'
     compile 'com.squareup.okhttp3:okhttp:3.3.1'
     compile 'com.github.rickyclarkson:jmdns:3.4.2-r353-1'
+}
+
+def siteUrl = 'https://github.com/BboxLab/bboxapi-library'
+def gitUrl = 'https://github.com/BboxLab/bboxapi-library.git'
+
+
+group = 'fr.bouyguestelecom.dev'
+version = android.defaultConfig.versionName
+
+bintray {
+    user = "$System.env.BINTRAY_USER"
+    key = "$System.env.BINTRAY_KEY"
+
+    configurations = ['archives']
+
+    dryRun = false //Whether to run this as dry-run, without deploying
+    publish = true //If version should be auto published after an upload
+
+    pkg {
+        repo = 'maven'
+        name = 'bboxapi-library'
+        userOrg = 'bboxlab'
+        desc = 'The android Bboxapi library built to easily use the OpenAPI of the next generation of bbox'
+        websiteUrl = siteUrl
+        issueTrackerUrl = 'https://github.com/BboxLab/bboxapi-library/issues'
+        vcsUrl = gitUrl
+        licenses = ['MIT']
+        labels = ['bbox','bbox-miami','api']
+        publicDownloadNumbers = true
+
+        version {
+            name = android.defaultConfig.versionName //Bintray logical version name
+            vcsTag = android.defaultConfig.versionName
+
+            gpg {
+                sign = true
+                passphrase = "$System.env.GPG_PASSPHRASE"
+            }
+
+            mavenCentralSync {
+                sync = false
+                //Optional (true by default). Determines whether to sync the version to Maven Central.
+                user = "$System.env.MAVEN_CENTRAL_USER_TOKEN" //OSS user token
+                password = "$System.env.MAVEN_CENTRAL_PASSWORD" //OSS user password
+                close = '1'
+                //Optional property. By default the staging repository is closed and artifacts are released to Maven Central. You can optionally turn this behaviour off (by puting 0 as value) and release the version manually.
+            }
+        }
+    }
+}
+
+install {
+    repositories.mavenInstaller {
+        pom {
+            project {
+                description 'The android Bboxapi library built to easily use the OpenAPI of the next generation of bbox'
+                packaging 'aar'
+                name 'bboxapi-library'
+                url siteUrl
+                licenses {
+                    license {
+                        name 'The MIT License'
+                        url 'https://github.com/BboxLab/bboxapi-library/blob/master/LICENSE'
+                    }
+                }
+                developers {
+                    developer {
+                        id 'gun95'
+                        name 'Redouane Messara'
+                        email 'redouane.messara@epitech.eu'
+                    }
+                }
+                scm {
+                    connection 'https://github.com/BboxLab/bboxapi-library.git'
+                    developerConnection 'https://github.com/BboxLab/bboxapi-library.git'
+                    url siteUrl
+                }
+            }
+        }
+    }
+}
+
+task sourcesJar(type: Jar) {
+    from android.sourceSets.main.java.srcDirs
+    classifier = 'sources'
+}
+
+task javadoc(type: Javadoc) {
+    source = android.sourceSets.main.java.srcDirs
+    classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
+    failOnError false
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+artifacts {
+    archives javadocJar
+    archives sourcesJar
 }
