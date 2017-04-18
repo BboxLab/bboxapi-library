@@ -640,28 +640,19 @@ public class Bbox implements IBbox {
 
     @Override
     public String addListener(String ip, final String appId, IBboxMedia iBboxMedia) {
-        if (mWebSocket == null) {
             mWebSocket = new WebSocket(ip, appId);
-        }
-
         return mWebSocket.addNotifChannelListener(iBboxMedia);
     }
 
     @Override
     public String addListener(String ip, String appId, IBboxApplication iBboxApplication) {
-        if (mWebSocket == null) {
             mWebSocket = new WebSocket(ip, appId);
-        }
-
         return mWebSocket.addNotifApplication(iBboxApplication);
     }
 
     @Override
     public String addListener(String ip, String appId, IBboxMessage iBboxMessage) {
-        if (mWebSocket == null) {
             mWebSocket = new WebSocket(ip, appId);
-        }
-
         return mWebSocket.addNotifMessage(iBboxMessage);
     }
 

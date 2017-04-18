@@ -98,7 +98,6 @@ public class WebSocket {
                         }
                     }
 
-
                     if (obj.get("resourceId").toString().contains("Iot")) {
 
                         MessageResource messageResource = new MessageResource(obj.getJSONObject("body").get("source").toString(),
