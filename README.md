@@ -1,6 +1,9 @@
 # BBoxapi-library
 
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/a7b50f5ddefe4ea2b888354fd0e9d59a)](https://www.codacy.com/app/gun95/bboxapi-library?utm_source=github.com&utm_medium=referral&utm_content=BboxLab/bboxapi-library&utm_campaign=badger)
+[![License](http://img.shields.io/:license-mit-blue.svg)](LICENSE.md)
+
+[![Download](https://api.bintray.com/packages/bboxlab/maven/bboxapi-library/images/download.svg) ](https://bintray.com/bboxlab/maven/bboxapi-library/_latestVersion)
 
 This is the basic SDK for your own application if you want to make use of BboxAPI services from Bbox Miami. Don't forget to ask credentials (AppID/AppSecret) via https://dev.bouyguestelecom.fr/dev/?page_id=51
 
