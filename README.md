@@ -15,7 +15,7 @@ clone the depot and build
 add **bboxapi-library-1.1-release.aar** to your lib folder of your project
 add this line to your gradle dependencies  
 ````
-compile(name: 'bboxapi-debug', ext: 'aar')
+compile(name: 'bboxapi-library-1.1-release.aar', ext: 'aar')
 ````
 2 -maven
 ````
