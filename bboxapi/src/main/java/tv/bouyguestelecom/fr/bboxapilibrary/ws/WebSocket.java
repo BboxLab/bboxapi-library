@@ -23,7 +23,6 @@ import tv.bouyguestelecom.fr.bboxapilibrary.model.ApplicationResource;
 import tv.bouyguestelecom.fr.bboxapilibrary.model.MediaResource;
 import tv.bouyguestelecom.fr.bboxapilibrary.model.MessageResource;
 import tv.bouyguestelecom.fr.bboxapilibrary.model.Resource;
-import tv.bouyguestelecom.fr.bboxapilibrary.util.ListenerList;
 
 public class WebSocket {
     private static final String TAG = WebSocket.class.getSimpleName();
@@ -33,9 +32,7 @@ public class WebSocket {
     private WebSocketClient mWebSocketClient;
     private Bbox bbox;
 
-    private ListenerList<IBboxMedia> notifMedia = new ListenerList<>();
-    private ListenerList<IBboxApplication> notifApps = new ListenerList<>();
-    private ListenerList<IBboxMessage> notifMsg = new ListenerList<>();
+
 
     private String mAppId;
     private String mWebsocketAddress;
@@ -73,7 +70,7 @@ public class WebSocket {
                     if (resource.getResourceId().equals("Media")) {
                         MediaResource mediaResource = new MediaResource(new JSONObject(resource.getBody()));
 
-                        for (Map.Entry<String, IBboxMedia> iChannelListenerEntry : notifMedia.getMap().entrySet()) {
+                        for (Map.Entry<String, IBboxMedia> iChannelListenerEntry : Bbox.getInstance().getNotifMedia().getMap().entrySet()) {
                             iChannelListenerEntry.getValue().onNewMedia(mediaResource);
                         }
                     }
@@ -83,7 +80,7 @@ public class WebSocket {
                         ApplicationResource appResource = new ApplicationResource(obj.getJSONObject("body").get("packageName").toString(),
                                 obj.getJSONObject("body").get("state").toString());
 
-                        for (Map.Entry<String, IBboxApplication> iAppListenerEntry : notifApps.getMap().entrySet()) {
+                        for (Map.Entry<String, IBboxApplication> iAppListenerEntry : Bbox.getInstance().getNotifApps().getMap().entrySet()) {
                             iAppListenerEntry.getValue().onNewApplication(appResource);
                         }
                     }
@@ -93,7 +90,7 @@ public class WebSocket {
                         MessageResource messageResource = new MessageResource(obj.getJSONObject("body").get("source").toString(),
                                 obj.getJSONObject("body").get("message").toString());
 
-                        for (Map.Entry<String, IBboxMessage> iMsgListenerEntry : notifMsg.getMap().entrySet()) {
+                        for (Map.Entry<String, IBboxMessage> iMsgListenerEntry : Bbox.getInstance().getNotifMsg().getMap().entrySet()) {
                             iMsgListenerEntry.getValue().onNewMessage(messageResource);
                         }
                     }
@@ -103,7 +100,7 @@ public class WebSocket {
                         MessageResource messageResource = new MessageResource(obj.getJSONObject("body").get("source").toString(),
                                 obj.getJSONObject("body").get("message").toString());
 
-                        for (Map.Entry<String, IBboxMessage> iMsgListenerEntry : notifMsg.getMap().entrySet()) {
+                        for (Map.Entry<String, IBboxMessage> iMsgListenerEntry : Bbox.getInstance().getNotifMsg().getMap().entrySet()) {
                             iMsgListenerEntry.getValue().onNewMessage(messageResource);
                         }
                     }
@@ -133,40 +130,6 @@ public class WebSocket {
         }
     }
 
-    public String addNotifChannelListener(IBboxMedia iChannelListener) {
-        return notifMedia.add(iChannelListener);
-    }
 
-    public void removeNotifChannelListener(String iMediaListenerId) {
-        notifMedia.remove(iMediaListenerId);
-    }
-
-    public String addNotifApplication(IBboxApplication iAppListenerId) {
-        return notifApps.add(iAppListenerId);
-    }
-
-    public void removeNotifApps(String iAppListenerId) {
-        notifApps.remove(iAppListenerId);
-    }
-
-    public String addNotifMessage(IBboxMessage iMsgListenerId) {
-        return notifMsg.add(iMsgListenerId);
-    }
-
-    public void removeNotifMsg(String iMsgListenerId) {
-        notifMsg.remove(iMsgListenerId);
-    }
-
-    public ListenerList<IBboxMedia> getNotifMedia() {
-        return notifMedia;
-    }
-
-    public ListenerList<IBboxApplication> getNotifApps() {
-        return notifApps;
-    }
-
-    public ListenerList<IBboxMessage> getNotifMsg() {
-        return notifMsg;
-    }
 
 }
