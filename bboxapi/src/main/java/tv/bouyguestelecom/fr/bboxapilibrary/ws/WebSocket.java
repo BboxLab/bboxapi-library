@@ -19,6 +19,7 @@ import tv.bouyguestelecom.fr.bboxapilibrary.Bbox;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxApplication;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxMedia;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxMessage;
+import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxSubscribe;
 import tv.bouyguestelecom.fr.bboxapilibrary.model.ApplicationResource;
 import tv.bouyguestelecom.fr.bboxapilibrary.model.MediaResource;
 import tv.bouyguestelecom.fr.bboxapilibrary.model.MessageResource;
@@ -36,19 +37,13 @@ public class WebSocket {
 
     private String mAppId;
     private String mWebsocketAddress;
+    private final IBboxSubscribe iBboxSubscribe;
 
-    public WebSocket(String ip, String appId) {
+    public WebSocket(String ip, String appId, IBboxSubscribe iBboxSubscribe) {
         mAppId = appId;
         mWebsocketAddress = WEBSOCKET_PREFIX + ip + ":" + WEBSOCKET_PORT;
+        this.iBboxSubscribe = iBboxSubscribe;
         init();
-    }
-
-    public static WebSocket getInstance(String appId, Bbox bbox) {
-        if(instance == null) {
-            instance = new WebSocket(appId, appId);
-        }
-
-        return instance;
     }
 
     private void init() {
@@ -56,6 +51,9 @@ public class WebSocket {
             @Override
             public void onOpen(ServerHandshake handshakedata) {
                 mWebSocketClient.send(mAppId);
+                if (iBboxSubscribe != null) {
+                    iBboxSubscribe.onSubscribe();
+                }
             }
 
             @Override
@@ -87,11 +85,12 @@ public class WebSocket {
 
                     if (obj.get("resourceId").toString().contains("Message") || obj.get("resourceId").toString().contains(".")) {
 
-                        MessageResource messageResource = new MessageResource(obj.getJSONObject("body").get("source").toString(),
-                                obj.getJSONObject("body").get("message").toString());
+                        JSONObject body = obj.getJSONObject("body");
+                        MessageResource messageResource = new MessageResource(body.get("source").toString(),
+                                body.getString("message"));
 
-                        for (Map.Entry<String, IBboxMessage> iMsgListenerEntry : Bbox.getInstance().getNotifMsg().getMap().entrySet()) {
-                            iMsgListenerEntry.getValue().onNewMessage(messageResource);
+                        for (IBboxMessage msg : Bbox.getInstance().getNotifMsg().getMap().values()) {
+                            msg.onNewMessage(messageResource);
                         }
                     }
 
@@ -117,7 +116,7 @@ public class WebSocket {
 
             @Override
             public void onError(Exception ex) {
-                Log.e(TAG, "onError");
+                Log.e(TAG, "onError", ex);
             }
         };
 
@@ -130,6 +129,13 @@ public class WebSocket {
         }
     }
 
-
-
+    public boolean isClosed() {
+        if (mWebSocketClient != null) {
+            org.java_websocket.WebSocket realWebSocket = mWebSocketClient.getConnection();
+            if (realWebSocket != null) {
+                return realWebSocket.isClosed();
+            }
+        }
+        return true;
+    }
 }

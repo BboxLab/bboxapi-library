@@ -17,6 +17,7 @@ import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.Call;
@@ -131,7 +132,7 @@ public class Bbox implements IBbox {
             call.enqueue(new Callback() {
                 @Override
                 public void onFailure(Call call, IOException e) {
-                    Log.e(TAG, "Get token failed : " + e.getMessage());
+                    Log.e(TAG, "Get token failed", e);
                     iBboxGetToken.onFailure(call.request(), HttpURLConnection.HTTP_BAD_REQUEST);
                 }
 
@@ -144,7 +145,7 @@ public class Bbox implements IBbox {
                         iBboxGetToken.onResponse(tokenCloud);
                         mValidityToken = System.currentTimeMillis() + 24 * 60 * 60 * 1000;
                         mToken = tokenCloud;
-                        Log.d(TAG, "token = " + mToken);
+                        //Log.d(TAG, "token = " + mToken);
                     } else {
                         iBboxGetToken.onFailure(call.request(), response.code());
                         Log.e(TAG, "Get token failed");
@@ -176,12 +177,12 @@ public class Bbox implements IBbox {
                                     .url(URL_SESSION_ID.replace("@IP", ip))
                                     .post(body)
                                     .build();
-                            Log.d(TAG, "url =  : " + URL_SESSION_ID.replace("@IP", ip));
+                            //Log.d(TAG, "url =  : " + URL_SESSION_ID.replace("@IP", ip));
                             Call call = mClient.newCall(request);
                             call.enqueue(new Callback() {
                                 @Override
                                 public void onFailure(Call call, IOException e) {
-                                    Log.e(TAG, "Get sessionId failed : " + e.getMessage());
+                                    Log.e(TAG, "Get sessionId failed", e);
                                     iBboxGetSessionId.onFailure(call.request(), HttpURLConnection.HTTP_BAD_REQUEST);
                                 }
 
@@ -205,7 +206,6 @@ public class Bbox implements IBbox {
                         } catch (JSONException e) {
                             Log.e(TAG, "Error occured", e);
                         }
-
                     } else {
                         iBboxGetSessionId.onResponse(mSessionId);
                     }
@@ -283,10 +283,9 @@ public class Bbox implements IBbox {
                     }
 
                     public void onResponse(Call call, Response response) throws IOException {
-                        Log.i(TAG, "Get channels success");
+                        //Log.i(TAG, "Get channels success");
                         if (response.code() == HttpURLConnection.HTTP_OK)
                             iBboxGetChannels.onResponse(parseJsonChannels(response));
-
                         else
                             iBboxGetChannels.onFailure(response.request(), response.code());
 
@@ -487,7 +486,7 @@ public class Bbox implements IBbox {
             public void onResponse(final String sessionId) {
                 Request.Builder requestBuilder = new Request.Builder()
                         .url(URL_GET_APPLICATIONS.replace("@IP", ip));
-                if (sessionId!=null) {
+                if (sessionId != null) {
                     requestBuilder.header("x-sessionid", sessionId);
                 }
                 final Request request = requestBuilder.build();
@@ -510,7 +509,7 @@ public class Bbox implements IBbox {
             }
 
             public void onFailure(Request request, int errorCode) {
-               // iBboxGetApplications.onFailure(request, errorCode);
+                // iBboxGetApplications.onFailure(request, errorCode);
                 onResponse(null);
             }
         });
@@ -520,7 +519,7 @@ public class Bbox implements IBbox {
     public void getCurrentChannel(final String ip, String appId, String appSecret, final IBboxGetCurrentChannel iBboxGetCurrentChannel) {
         getSessionId(ip, appId, appSecret, new IBboxGetSessionId() {
             public void onResponse(final String sessionId) {
-                Log.v(TAG, "SessionId ==> " + sessionId);
+                //Log.v(TAG, "SessionId ==> " + sessionId);
                 final Request request = new Request.Builder()
                         .url(URL_GET_CURRENT_CHANNEL.replace("@IP", ip))
                         .header("x-sessionid", sessionId)
@@ -567,7 +566,7 @@ public class Bbox implements IBbox {
                     call.enqueue(new Callback() {
                         @Override
                         public void onFailure(Call call, IOException e) {
-                            Log.i(TAG, "Register app failed");
+                            Log.e(TAG, "Register app failed", e);
                             iBboxRegisterApp.onFailure(call.request(), HttpURLConnection.HTTP_BAD_REQUEST);
                         }
 
@@ -576,12 +575,12 @@ public class Bbox implements IBbox {
                             if (response.code() == HttpURLConnection.HTTP_NO_CONTENT
                                     && response.headers().get("Location") != null
                                     && !response.headers().get("Location").isEmpty()) {
-                                Log.i(TAG, "Register app success");
+                                //Log.i(TAG, "Register app success");
                                 String location = response.headers().get("Location");
                                 String appId = location.substring(location.lastIndexOf('/') + 1);
                                 iBboxRegisterApp.onResponse(appId);
                             } else {
-                                Log.i(TAG, "Register app failed");
+                                //Log.i(TAG, "Register app failed");
                                 iBboxRegisterApp.onFailure(call.request(), response.code());
                             }
 
@@ -607,6 +606,26 @@ public class Bbox implements IBbox {
         getSessionId(ip, appId, appSecret, new IBboxGetSessionId() {
             @Override
             public void onResponse(String sessionId) {
+                IBboxSubscribe bothSubscribe = iBboxSubscribe;
+                if (mWebSocket == null || mWebSocket.isClosed()) {
+                    bothSubscribe = new IBboxSubscribe() {
+                        CountDownLatch countDown = new CountDownLatch(2);
+
+                        @Override
+                        public void onSubscribe() {
+                            countDown.countDown();
+                            if (countDown.getCount() == 0) {
+                                iBboxSubscribe.onSubscribe();
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(Request request, int errorCode) {
+                            iBboxSubscribe.onFailure(request, errorCode);
+                        }
+                    };
+                    mWebSocket = new WebSocket(ip, appRegisterId, bothSubscribe);
+                }
                 RequestBody body = RequestBody.create(JSON, buildJsonRequestNotif(appRegisterId, ressourceId));
                 final Request request = new Request.Builder()
                         .url(URL_NOTIFICATION.replace("@IP", ip))
@@ -615,21 +634,22 @@ public class Bbox implements IBbox {
                         .build();
 
                 Call call = mClient.newCall(request);
+                final IBboxSubscribe finalBboxSubscribe = bothSubscribe;
                 call.enqueue(new Callback() {
                     @Override
                     public void onFailure(Call call, IOException e) {
-                        Log.i(TAG, "Subscribe Notification failed");
-                        iBboxSubscribe.onFailure(call.request(), HttpURLConnection.HTTP_BAD_REQUEST);
+                        Log.e(TAG, "Subscribe Notification failed", e);
+                        finalBboxSubscribe.onFailure(call.request(), HttpURLConnection.HTTP_BAD_REQUEST);
                     }
 
                     @Override
                     public void onResponse(Call call, Response response) throws IOException {
                         if (response.code() == HttpURLConnection.HTTP_NO_CONTENT) {
-                            Log.i(TAG, "Subscribe Notification success");
-                            iBboxSubscribe.onSubscribe();
+                            //Log.i(TAG, "Subscribe Notification success");
+                            finalBboxSubscribe.onSubscribe();
                         } else {
-                            Log.i(TAG, "Subscribe Notification failed");
-                            iBboxSubscribe.onFailure(call.request(), response.code());
+                            //Log.i(TAG, "Subscribe Notification failed");
+                            finalBboxSubscribe.onFailure(call.request(), response.code());
                         }
 
                         response.body().close();
@@ -646,28 +666,24 @@ public class Bbox implements IBbox {
 
     @Override
     public String addListener(String ip, final String appId, IBboxMedia iBboxMedia) {
-            mWebSocket = new WebSocket(ip, appId);
         return addNotifChannelListener(iBboxMedia);
     }
 
     @Override
     public String addListener(String ip, String appId, IBboxApplication iBboxApplication) {
-            mWebSocket = new WebSocket(ip, appId);
         return addNotifApplication(iBboxApplication);
     }
 
     @Override
     public String addListener(String ip, String appId, IBboxMessage iBboxMessage) {
-            mWebSocket = new WebSocket(ip, appId);
         return addNotifMessage(iBboxMessage);
     }
 
     @Override
     public void removeMediaListener(String ip, String appId, String channelListenerId) {
-        WebSocket mWebSocketBis = new WebSocket(ip, appId);
+        WebSocket mWebSocketBis = new WebSocket(ip, appId, null);
 
-        if (getNotifMedia() != null)
-        {
+        if (getNotifMedia() != null) {
             removeNotifChannelListener(channelListenerId);
 
             if (getNotifMedia().size() == 0)
@@ -677,10 +693,9 @@ public class Bbox implements IBbox {
 
     @Override
     public void removeAppListener(String ip, String appId, String channelListenerId) {
-        WebSocket mWebSocketBis = new WebSocket(ip, appId);
+        WebSocket mWebSocketBis = new WebSocket(ip, appId, null);
 
-        if (getNotifApps() != null)
-        {
+        if (getNotifApps() != null) {
             removeNotifApps(channelListenerId);
 
             if (getNotifApps().size() == 0)
@@ -690,10 +705,9 @@ public class Bbox implements IBbox {
 
     @Override
     public void removeMsgListener(String ip, String appId, String channelListenerId) {
-        WebSocket mWebSocketBis = new WebSocket(ip, appId);
+        WebSocket mWebSocketBis = new WebSocket(ip, appId, null);
 
-        if (getNotifMsg() != null)
-        {
+        if (getNotifMsg() != null) {
             removeNotifMsg(channelListenerId);
 
             if (getNotifMsg().size() == 0)
@@ -861,30 +875,30 @@ public class Bbox implements IBbox {
         getSessionId(ip, appId, appSecret, new IBboxGetSessionId() {
             @Override
             public void onResponse(String sessionId) {
-                String url = URL_START_APP +"/" + packageName;
+                String url = URL_START_APP + "/" + packageName;
                 RequestBody body = RequestBody.create(JSON, "");
                 final Request request = new Request.Builder()
                         .url(url.replace("@IP", ip))
                         .header("x-sessionid", sessionId)
                         .post(body)
                         .build();
-                Log.d(TAG, request.toString());
+                //Log.d(TAG, request.toString());
 
                 Call call = mClient.newCall(request);
                 call.enqueue(new Callback() {
                     @Override
                     public void onFailure(Call call, IOException e) {
-                        Log.i(TAG, "Start app failed before response");
+                        Log.e(TAG, "Start app failed before response", e);
                         iBboxStartApplication.onFailure(call.request(), HttpURLConnection.HTTP_BAD_REQUEST);
                     }
 
                     @Override
                     public void onResponse(Call call, Response response) throws IOException {
                         if (response.code() == HttpURLConnection.HTTP_NO_CONTENT) {
-                            Log.i(TAG, "Start app success");
+                            //Log.i(TAG, "Start app success");
                             iBboxStartApplication.onResponse();
                         } else {
-                            Log.i(TAG, "Start app failed "+response.code());
+                            //Log.i(TAG, "Start app failed "+response.code());
                             iBboxStartApplication.onFailure(call.request(), response.code());
                         }
 
@@ -907,30 +921,30 @@ public class Bbox implements IBbox {
         getSessionId(ip, appId, appSecret, new IBboxGetSessionId() {
             @Override
             public void onResponse(String sessionId) {
-                String url = URL_START_APP +"/" + packageName;
+                String url = URL_START_APP + "/" + packageName;
                 RequestBody body = RequestBody.create(JSON, buildJsonRequestDeeplink(deeplink));
                 final Request request = new Request.Builder()
                         .url(url.replace("@IP", ip))
                         .header("x-sessionid", sessionId)
                         .post(body)
                         .build();
-                Log.d(TAG, request.toString());
+                //Log.d(TAG, request.toString());
 
                 Call call = mClient.newCall(request);
                 call.enqueue(new Callback() {
                     @Override
                     public void onFailure(Call call, IOException e) {
-                        Log.i(TAG, "Start app failed before response");
+                        Log.e(TAG, "Start app failed before response", e);
                         iBboxStartApplication.onFailure(call.request(), HttpURLConnection.HTTP_BAD_REQUEST);
                     }
 
                     @Override
                     public void onResponse(Call call, Response response) throws IOException {
                         if (response.code() == HttpURLConnection.HTTP_NO_CONTENT) {
-                            Log.i(TAG, "Start app success");
+                            //Log.i(TAG, "Start app success");
                             iBboxStartApplication.onResponse();
                         } else {
-                            Log.i(TAG, "Start app failed "+response.code());
+                            //Log.i(TAG, "Start app failed "+response.code());
                             iBboxStartApplication.onFailure(call.request(), response.code());
                         }
 
@@ -965,7 +979,7 @@ public class Bbox implements IBbox {
             jObject.put("pos_x", x);
             jObject.put("pos_y", y);
         } catch (JSONException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Error occured", e);
         }
         return jObject.toString();
     }
@@ -985,23 +999,23 @@ public class Bbox implements IBbox {
                         .header("x-sessionid", sessionId)
                         .post(body)
                         .build();
-                Log.d(TAG, request.toString());
+                //Log.d(TAG, request.toString());
 
                 Call call = mClient.newCall(request);
                 call.enqueue(new Callback() {
                     @Override
                     public void onFailure(Call call, IOException e) {
-                        Log.i(TAG, "Display toast failed");
+                        Log.e(TAG, "Display toast failed", e);
                         iBboxDisplayToast.onFailure(call.request(), HttpURLConnection.HTTP_BAD_REQUEST);
                     }
 
                     @Override
                     public void onResponse(Call call, Response response) throws IOException {
                         if (response.code() == HttpURLConnection.HTTP_NO_CONTENT) {
-                            Log.i(TAG, "Display toast success");
+                            //Log.i(TAG, "Display toast success");
                             iBboxDisplayToast.onResponse();
                         } else {
-                            Log.i(TAG, "Display toast failed");
+                            //Log.i(TAG, "Display toast failed");
                             iBboxDisplayToast.onFailure(call.request(), response.code());
                         }
 
@@ -1031,23 +1045,23 @@ public class Bbox implements IBbox {
                         .header("x-sessionid", sessionId)
                         .delete(body)
                         .build();
-                Log.d(TAG, request.toString());
+                //Log.d(TAG, request.toString());
 
                 Call call = mClient.newCall(request);
                 call.enqueue(new Callback() {
                     @Override
                     public void onFailure(Call call, IOException e) {
-                        Log.i(TAG, "Stop app failed before response");
+                        Log.e(TAG, "Stop app failed before response", e);
                         iBboxStopApplication.onFailure(call.request(), HttpURLConnection.HTTP_BAD_REQUEST);
                     }
 
                     @Override
                     public void onResponse(Call call, Response response) throws IOException {
                         if (response.code() == HttpURLConnection.HTTP_NO_CONTENT) {
-                            Log.i(TAG, "Stop app success");
+                            //Log.i(TAG, "Stop app success");
                             iBboxStopApplication.onResponse();
                         } else {
-                            Log.i(TAG, "Stop app failed");
+                            //Log.i(TAG, "Stop app failed");
                             iBboxStopApplication.onFailure(call.request(), response.code());
                         }
 
@@ -1077,23 +1091,23 @@ public class Bbox implements IBbox {
                         .header("x-sessionid", sessionId)
                         .post(body)
                         .build();
-                Log.d(TAG, request.toString());
+                //Log.d(TAG, request.toString());
 
                 Call call = mClient.newCall(request);
                 call.enqueue(new Callback() {
                     @Override
                     public void onFailure(Call call, IOException e) {
-                        Log.i(TAG, "Set volume failed");
+                        //Log.e(TAG, "Set volume failed", e);
                         iBboxSetVolume.onFailure(call.request(), HttpURLConnection.HTTP_BAD_REQUEST);
                     }
 
                     @Override
                     public void onResponse(Call call, Response response) throws IOException {
                         if (response.code() == HttpURLConnection.HTTP_NO_CONTENT) {
-                            Log.i(TAG, "Set volume success");
+                            //Log.i(TAG, "Set volume success");
                             iBboxSetVolume.onResponse();
                         } else {
-                            Log.i(TAG, "Set volume failed");
+                            //Log.i(TAG, "Set volume failed");
                             iBboxSetVolume.onFailure(call.request(), response.code());
                         }
 
@@ -1120,24 +1134,24 @@ public class Bbox implements IBbox {
                         .url(url.replace("@IP", ip))
                         .header("x-sessionid", sessionId)
                         .build();
-                Log.d(TAG, request.toString());
+                //Log.d(TAG, request.toString());
 
                 Call call = mClient.newCall(request);
                 call.enqueue(new Callback() {
                     @Override
                     public void onFailure(Call call, IOException e) {
-                        Log.i(TAG, "Get volume failed");
+                        Log.e(TAG, "Get volume failed", e);
                         iBboxGetVolume.onFailure(call.request(), HttpURLConnection.HTTP_BAD_REQUEST);
                     }
 
                     @Override
                     public void onResponse(Call call, Response response) throws IOException {
                         if (response.code() == HttpURLConnection.HTTP_OK) {
-                            Log.i(TAG, "Get volume success");
+                            //Log.i(TAG, "Get volume success");
                             String volume = response.body().string();
                             iBboxGetVolume.onResponse(volume);
                         } else {
-                            Log.i(TAG, "Get volume failed");
+                            //Log.i(TAG, "Get volume failed");
                             iBboxGetVolume.onFailure(call.request(), response.code());
                         }
 
@@ -1275,14 +1289,11 @@ public class Bbox implements IBbox {
                     }
 
                     public void onResponse(Call call, Response response) throws IOException {
-                        if (response.code() == HttpURLConnection.HTTP_OK)
-                        {
+                        if (response.code() == HttpURLConnection.HTTP_OK) {
                             InputStream in = response.body().byteStream();
                             Bitmap bmp = BitmapFactory.decodeStream(in);
                             iBboxGetApplicationIcon.onResponse(bmp);
-                        }
-
-                        else
+                        } else
                             iBboxGetApplicationIcon.onFailure(call.request(), response.code());
 
                         response.body().close();
@@ -1308,18 +1319,15 @@ public class Bbox implements IBbox {
                 Call mCall = mClient.newCall(request);
                 mCall.enqueue(new Callback() {
                     public void onFailure(Call call, IOException e) {
-                        Log.i(TAG, "Get notification channels failed");
+                        Log.e(TAG, "Get notification channels failed", e);
                         iBboxGetOpenedChannels.onFailure(call.request(), HttpURLConnection.HTTP_BAD_REQUEST);
                     }
 
                     public void onResponse(Call call, Response response) throws IOException {
-                        if (response.code() == HttpURLConnection.HTTP_OK)
-                        {
-                            Log.i(TAG, "Get notification channels success");
+                        if (response.code() == HttpURLConnection.HTTP_OK) {
+                            //Log.i(TAG, "Get notification channels success");
                             iBboxGetOpenedChannels.onResponse(parseJsonOpenedChannel(response));
-                        }
-
-                        else
+                        } else
                             iBboxGetOpenedChannels.onFailure(call.request(), response.code());
 
                         response.body().close();
@@ -1328,7 +1336,7 @@ public class Bbox implements IBbox {
             }
 
             public void onFailure(Request request, int errorCode) {
-                Log.i(TAG, "Get notification channels failed");
+                //Log.i(TAG, "Get notification channels failed");
                 iBboxGetOpenedChannels.onFailure(request, errorCode);
             }
         });
@@ -1347,12 +1355,10 @@ public class Bbox implements IBbox {
                     channels.add(channel);
                 }
 
-                Log.i(TAG, "channels : " + channels.toString());
+                //Log.i(TAG, "channels : " + channels.toString());
 
-            } catch (IOException e) {
-                e.printStackTrace();
-            } catch (JSONException e) {
-                e.printStackTrace();
+            } catch (JSONException | IOException e) {
+                Log.e(TAG, "Error occured", e);
             }
         }
 
@@ -1361,7 +1367,7 @@ public class Bbox implements IBbox {
 
     @Override
     public void unsubscribeNotification(final String ip, String appId, String appSecret, final String channelId,
-                                      final IBboxUnsubscribe iBboxUnsubscribe) {
+                                        final IBboxUnsubscribe iBboxUnsubscribe) {
         getSessionId(ip, appId, appSecret, new IBboxGetSessionId() {
             @Override
             public void onResponse(String sessionId) {
@@ -1377,17 +1383,17 @@ public class Bbox implements IBbox {
                 call.enqueue(new Callback() {
                     @Override
                     public void onFailure(Call call, IOException e) {
-                        Log.i(TAG, "Unsubscribe Notification failed");
+                        Log.e(TAG, "Unsubscribe Notification failed", e);
                         iBboxUnsubscribe.onFailure(call.request(), HttpURLConnection.HTTP_BAD_REQUEST);
                     }
 
                     @Override
                     public void onResponse(Call call, Response response) throws IOException {
                         if (response.code() == HttpURLConnection.HTTP_NO_CONTENT) {
-                            Log.i(TAG, "Unsubscribe Notification success");
+                            //Log.i(TAG, "Unsubscribe Notification success");
                             iBboxUnsubscribe.onUnsubscribe();
                         } else {
-                            Log.i(TAG, "Subscribe Notification failed");
+                            //Log.i(TAG, "Subscribe Notification failed");
                             iBboxUnsubscribe.onFailure(call.request(), response.code());
                         }
 
@@ -1417,23 +1423,23 @@ public class Bbox implements IBbox {
                         .header("x-sessionid", sessionId)
                         .post(body)
                         .build();
-                Log.d(TAG, request.toString());
+                //Log.d(TAG, request.toString());
 
                 Call call = mClient.newCall(request);
                 call.enqueue(new Callback() {
                     @Override
                     public void onFailure(Call call, IOException e) {
-                        Log.i(TAG, "Send message failed before response");
+                        Log.e(TAG, "Send message failed before response", e);
                         iBboxSendMessage.onFailure(call.request(), HttpURLConnection.HTTP_BAD_REQUEST);
                     }
 
                     @Override
                     public void onResponse(Call call, Response response) throws IOException {
                         if (response.code() == HttpURLConnection.HTTP_NO_CONTENT) {
-                            Log.i(TAG, "Send message success");
+                            //Log.i(TAG, "Send message success");
                             iBboxSendMessage.onResponse();
                         } else {
-                            Log.i(TAG, "Send message failed "+response.code());
+                            //Log.i(TAG, "Send message failed "+response.code());
                             iBboxSendMessage.onFailure(call.request(), response.code());
                         }
 
@@ -1496,5 +1502,4 @@ public class Bbox implements IBbox {
     public ListenerList<IBboxMessage> getNotifMsg() {
         return notifMsg;
     }
-
 }
