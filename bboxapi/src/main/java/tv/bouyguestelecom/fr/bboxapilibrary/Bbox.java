@@ -45,6 +45,7 @@ import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxGetVolume;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxMedia;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxMessage;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxRegisterApp;
+import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxSearchEpgBySummary;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxSendMessage;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxSetVolume;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxStartApplication;
@@ -1484,17 +1485,14 @@ public class Bbox implements IBbox {
     */
 
     @Override
-    public void SearchEpgBySummary(String appid, String appSecret, final String token, final String period, final String profil, final int typeEpg, final String epgChannelNumber, final String longSummary) {
+    public void SearchEpgBySummary(String ip, String appid, String appSecret, final String token, final String period, final String profil, final int typeEpg, final String epgChannelNumber, final String longSummary, final IBboxSearchEpgBySummary iBboxSearchEpgBySummary) {
 
-        Bbox.getInstance().getCurrentChannel("127.0.0.1", appid, appSecret, new IBboxGetCurrentChannel() {
+        Bbox.getInstance().getCurrentChannel(ip, appid, appSecret, new IBboxGetCurrentChannel() {
             @Override
             public void onResponse(Channel channel) {
-                Log.v(TAG, "Get current channels response");
-
-                if (channel != null
-                        && "play".equals(channel.getMediaState())) {
-                    Log.v(TAG, "curent channel ==>  " + channel.toString());
-                    getChanel(token, profil, channel.getName(), period, typeEpg, epgChannelNumber, longSummary);
+                if (channel != null && "play".equals(channel.getMediaState())) {
+                    Log.v(TAG, "Get curent channel ==>  " + channel.toString());
+                    getChanel(token, profil, channel.getName(), period, typeEpg, epgChannelNumber, longSummary, iBboxSearchEpgBySummary);
                 }
             }
 
@@ -1505,7 +1503,7 @@ public class Bbox implements IBbox {
         });
     }
 
-    private static void getChanel(final String token, final String profil, String name, final String period, final int typeEpg, final String epgChannelNumber, final String longSummary) {
+    private  void getChanel(final String token, final String profil, String name, final String period, final int typeEpg, final String epgChannelNumber, final String longSummary, final IBboxSearchEpgBySummary iBboxSearchEpgBySummary) {
         OkHttpClient httpClient = new OkHttpClient();
         HttpUrl.Builder urlBuilder = HttpUrl.parse("https://api.bbox.fr/v1.3/media/channels").newBuilder();
         urlBuilder.addQueryParameter("profil", profil);
@@ -1522,26 +1520,23 @@ public class Bbox implements IBbox {
             @Override
             public void onFailure(okhttp3.Call call, IOException e) {
                 Log.e(TAG, "Get channels failure");
+                iBboxSearchEpgBySummary.onFailure(call.request(), HttpURLConnection.HTTP_BAD_REQUEST);
             }
 
             @Override
             public void onResponse(okhttp3.Call call, okhttp3.Response response) throws IOException {
-                Log.v(TAG, "Get channels response");
-
                 if (response.code() == HttpURLConnection.HTTP_OK) {
-                    Log.v(TAG, "Get channels success");
                     List<Channel> channels = Parser.parseChannels(response);
 
                     if (!channels.isEmpty()) {
-                        Log.v(TAG, "channel ==> " + channels.get(0));
-
+                        Log.v(TAG, "Get channels ==> : " + channels.toString());
                         if (typeEpg == ALLEPG)
-                            getDetailProgram(token, period, profil, null, longSummary);
+                            getDetailProgram(token, period, profil, null, longSummary,iBboxSearchEpgBySummary);
                         else if (typeEpg == CURRENTEPG)
-                            getDetailProgram(token, period, profil, String.valueOf(channels.get(0).getEpgChannelNumber()), longSummary);
+                            getDetailProgram(token, period, profil, String.valueOf(channels.get(0).getEpgChannelNumber()), longSummary, iBboxSearchEpgBySummary);
 
                         else if (typeEpg == SELECTEDEPG)
-                            getDetailProgram(token, period, profil, epgChannelNumber, longSummary);
+                            getDetailProgram(token, period, profil, epgChannelNumber, longSummary, iBboxSearchEpgBySummary);
 
                     }
                 }
@@ -1549,7 +1544,7 @@ public class Bbox implements IBbox {
         });
     }
 
-    private static void getDetailProgram(String token, String period, String profil, String epgChannelNumber, String longSummary) {
+    private void getDetailProgram(String token, String period, String profil, String epgChannelNumber, String longSummary,final IBboxSearchEpgBySummary iBboxSearchEpgBySummary) {
         OkHttpClient httpClient = new OkHttpClient();
         HttpUrl.Builder urlBuilder = HttpUrl.parse("https://api.bbox.fr/v1.3/media/live").newBuilder();
         urlBuilder.addQueryParameter("period", period);
@@ -1569,22 +1564,17 @@ public class Bbox implements IBbox {
             @Override
             public void onFailure(okhttp3.Call call, IOException e) {
                 Log.e(TAG, "Get getDetailProgram failure");
+                iBboxSearchEpgBySummary.onFailure(call.request(), HttpURLConnection.HTTP_BAD_REQUEST);
             }
 
             @Override
             public void onResponse(okhttp3.Call call, okhttp3.Response response) throws IOException {
-                Log.v(TAG, "Get getDetailProgram response");
-
                 if (response.code() == HttpURLConnection.HTTP_OK) {
-                    Log.v(TAG, "Get getDetailProgram success = " + response.toString());
 
                     List<Epg> detailEpg = Parser.parseJsonListEpg(response);
-
                     if (!detailEpg.isEmpty()) {
-                        Log.v(TAG, "getDetailProgram ==> " + detailEpg.get(0).getProgramInfo().getLongTitle());
-                        Log.v(TAG, "getDetailProgram ==> " + detailEpg.get(0).getProgramInfo().getLongSummary());
-                        Log.v(TAG, "getDetailProgram ==> " + detailEpg.get(0).getEpgChannelNumber());
-
+                        Log.v(TAG, "Get getDetailProgram");
+                        iBboxSearchEpgBySummary.onResponse(detailEpg);
                     }
                 }
             }
