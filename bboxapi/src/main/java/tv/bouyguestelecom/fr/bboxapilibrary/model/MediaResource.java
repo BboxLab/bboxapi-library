@@ -39,12 +39,12 @@ public class MediaResource implements Comparable<MediaResource> {
 
     @Override
     public String toString() {
-        return "{" +
-                "\"mediaService\": \"" + mediaService + '\"' +
-                ", \"mediaState\": \"" + mediaState + '\"' +
-                ", \"mediaTitle\": \"" + mediaTitle + '\"' +
-                ", \"positionId\": " + positionId +
-                "}";
+        return "MediaResource{" +
+                "mediaService='" + mediaService + '\'' +
+                ", mediaState='" + mediaState + '\'' +
+                ", mediaTitle='" + mediaTitle + '\'' +
+                ", positionId=" + positionId +
+                '}';
     }
 
     @Override

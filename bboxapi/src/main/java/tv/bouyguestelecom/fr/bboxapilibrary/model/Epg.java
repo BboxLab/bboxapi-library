@@ -1,6 +1,5 @@
 package tv.bouyguestelecom.fr.bboxapilibrary.model;
 
-
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.JsonReader;
@@ -9,14 +8,15 @@ import android.util.JsonToken;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.StringTokenizer;
 
 public class Epg implements Parcelable, Comparable<Epg> {
     private static final String TAG = Epg.class.getSimpleName();
     private List<Media> medias = new ArrayList<>();
     private List<AudioInfo> audioInfos = new ArrayList<>();
     private List<Reschedule> reschedules = new ArrayList<>();
+    private Channel channel = new Channel();
     private ProgramInfo programInfo;
-    private SeriesInfo seriesInfo;
     private String _id;
     private String productId;
     private String title;
@@ -28,212 +28,248 @@ public class Epg implements Parcelable, Comparable<Epg> {
     private String startTime;
     private String endTime;
     private String thumb;
-    private String channelName;
-    private String channelLogo;
     private int epgChannelNumber;
     private int positionId;
 
-    public Epg(JsonReader reader) {
-        try {
-            if (reader.peek() == JsonToken.BEGIN_OBJECT)
-                reader.beginObject();
+    public Epg(JsonReader reader) throws IOException {
+        if (reader.peek() == JsonToken.BEGIN_OBJECT)
+            reader.beginObject();
+        else
+            reader.skipValue();
 
-            else
-                reader.skipValue();
+        while (reader.hasNext()) {
+            String name;
 
-            while (reader.hasNext()) {
-                String name;
+            if (reader.peek() == JsonToken.NAME) {
+                name = reader.nextName();
 
-                if (reader.peek() == JsonToken.NAME) {
-                    name = reader.nextName();
-
-                    switch (name) {
-                        case "_id":
-                            if (reader.peek() == JsonToken.STRING)
-                                _id = reader.nextString();
-                            else
-                                reader.skipValue();
-                            break;
-
-                        case "thumb":
-                            if (reader.peek() == JsonToken.STRING)
-                                thumb = reader.nextString();
-                            else
-                                reader.skipValue();
-                            break;
-
-                        case "channelName":
-                            if (reader.peek() == JsonToken.STRING)
-                                channelName = reader.nextString();
-                            else
-                                reader.skipValue();
-                            break;
-
-                        case "channelLogo":
-                            if (reader.peek() == JsonToken.STRING)
-                                channelLogo = reader.nextString();
-                            else
-                                reader.skipValue();
-                            break;
-
-                        case "productId":
-                            if (reader.peek() == JsonToken.STRING)
-                                productId = reader.nextString();
-                            else
-                                reader.skipValue();
-                            break;
-
-                        case "title":
-                            if (reader.peek() == JsonToken.STRING)
-                                title = reader.nextString();
-                            else
-                                reader.skipValue();
-                            break;
-
-                        case "parentalGuidance":
-                            if (reader.peek() == JsonToken.STRING)
-                                parentalGuidance = reader.nextString();
-                            else
-                                reader.skipValue();
-                            break;
-
-                        case "lastUpdateTime":
-                            if (reader.peek() == JsonToken.STRING)
-                                lastUpdateTime = reader.nextString();
-                            else
-                                reader.skipValue();
-                            break;
-
-                        case "genre":
-                            if (reader.peek() == JsonToken.STRING)
-                                genre = reader.nextString();
-                            else
-                                reader.skipValue();
-                            break;
-
-                        case "eventId":
-                            if (reader.peek() == JsonToken.STRING)
-                                eventId = reader.nextString();
-                            else
-                                reader.skipValue();
-                            break;
-
-                        case "externalId":
-                            if (reader.peek() == JsonToken.STRING)
-                                externalId = reader.nextString();
-                            else
-                                reader.skipValue();
-                            break;
-
-                        case "startTime":
-                            if (reader.peek() == JsonToken.STRING)
-                                startTime = reader.nextString();
-                            else
-                                reader.skipValue();
-                            break;
-
-                        case "endTime":
-                            if (reader.peek() == JsonToken.STRING)
-                                endTime = reader.nextString();
-                            else
-                                reader.skipValue();
-                            break;
-
-                        case "epgChannelNumber":
-                            if (reader.peek() != JsonToken.NULL)
-                                epgChannelNumber = reader.nextInt();
-                            break;
-
-                        case "positionId":
-                            if (reader.peek() != JsonToken.NULL)
-                                positionId = reader.nextInt();
-                            break;
-
-                        case "programInfo":
-                            programInfo = new ProgramInfo(reader);
-                            break;
-
-                        case "seriesInfo":
-                            seriesInfo = new SeriesInfo(reader);
-                            break;
-
-                        case "media":
-                            if (reader.peek() != JsonToken.NULL) {
-                                medias = getMedias(reader);
-                            } else
-                                reader.skipValue();
-                            break;
-
-                        case "audioInfo":
-                            if (reader.peek() != JsonToken.NULL) {
-                                audioInfos = getAudioInfos(reader);
-                            } else
-                                reader.skipValue();
-                            break;
-
-                        case "reschedule":
-                            if (reader.peek() != JsonToken.NULL) {
-                                reschedules = getReschedules(reader);
-                            } else
-                                reader.skipValue();
-                            break;
-
-                        default:
+                switch (name) {
+                    case "_id":
+                        if (reader.peek() == JsonToken.STRING)
+                            _id = reader.nextString();
+                        else
                             reader.skipValue();
-                            break;
-                    }
-                } else if (reader.peek() != JsonToken.END_DOCUMENT)
-                    reader.skipValue();
+                        break;
 
-                else
-                    break;
-            }
+                    case "posterArtUri":
+                    case "thumbnailUri":
+                    case "thumb":
+                        if (reader.peek() == JsonToken.STRING)
+                            thumb = reader.nextString();
+                        else
+                            reader.skipValue();
+                        break;
 
-            if (reader.peek() == JsonToken.END_OBJECT) {
-                reader.endObject();
+                    case "channelName":
+                        if (reader.peek() == JsonToken.STRING)
+                            channel.setName(reader.nextString());
+                        else
+                            reader.skipValue();
+                        break;
+
+                    case "channelLogo":
+                        if (reader.peek() == JsonToken.STRING)
+                            channel.setLogo(reader.nextString());
+                        else
+                            reader.skipValue();
+                        break;
+
+                    case "productId":
+                        if (reader.peek() == JsonToken.STRING)
+                            productId = reader.nextString();
+                        else
+                            reader.skipValue();
+                        break;
+
+                    case "title":
+                        if (reader.peek() == JsonToken.STRING)
+                            title = reader.nextString();
+                        else
+                            reader.skipValue();
+                        break;
+
+                    case "parentalGuidance":
+                        if (reader.peek() == JsonToken.STRING)
+                            parentalGuidance = reader.nextString();
+                        else
+                            reader.skipValue();
+                        break;
+
+                    case "lastUpdateTime":
+                        if (reader.peek() == JsonToken.STRING)
+                            lastUpdateTime = reader.nextString();
+                        else
+                            reader.skipValue();
+                        break;
+
+                    case "genre":
+                        if (reader.peek() == JsonToken.STRING)
+                            genre = reader.nextString();
+                        else
+                            reader.skipValue();
+                        break;
+
+                    case "programId":
+                    case "eventId":
+                        if (reader.peek() == JsonToken.STRING)
+                            eventId = reader.nextString();
+                        else
+                            reader.skipValue();
+                        break;
+
+                    case "externalId":
+                        if (reader.peek() == JsonToken.STRING)
+                            externalId = reader.nextString();
+                        else
+                            reader.skipValue();
+                        break;
+
+                    case "startTime":
+                        if (reader.peek() == JsonToken.STRING)
+                            startTime = reader.nextString();
+                        else
+                            reader.skipValue();
+                        break;
+
+                    case "endTime":
+                        if (reader.peek() == JsonToken.STRING)
+                            endTime = reader.nextString();
+                        else
+                            reader.skipValue();
+                        break;
+
+                    case "channelId":
+                    case "epgChannelNumber":
+                        if (reader.peek() != JsonToken.NULL)
+                            epgChannelNumber = reader.nextInt();
+                        break;
+
+                    case "positionId":
+                        if (reader.peek() != JsonToken.NULL)
+                            positionId = reader.nextInt();
+                        break;
+
+                    case "programInfo":
+                        programInfo = new ProgramInfo(reader);
+                        break;
+
+                    case "media":
+                        if (reader.peek() != JsonToken.NULL) {
+                            medias = getMedias(reader);
+                        } else
+                            reader.skipValue();
+                        break;
+
+                    case "audioInfo":
+                        if (reader.peek() != JsonToken.NULL) {
+                            audioInfos = getAudioInfos(reader);
+                        } else
+                            reader.skipValue();
+                        break;
+
+                    case "reschedule":
+                        if (reader.peek() != JsonToken.NULL) {
+                            reschedules = getReschedules(reader);
+                        } else
+                            reader.skipValue();
+                        break;
+
+                    case "shortDescription":
+                        if (programInfo == null) {
+                            programInfo = new ProgramInfo();
+                        }
+                        programInfo.setShortSummary(reader.nextString());
+                        break;
+
+                    case "longDescription":
+                        if (programInfo == null) {
+                            programInfo = new ProgramInfo();
+                        }
+                        programInfo.setLongSummary(reader.nextString());
+                        break;
+
+                    case "broadcastGenre":
+                        if (programInfo == null) {
+                            programInfo = new ProgramInfo();
+                        }
+                        String genresStr = reader.nextString();
+                        List<String> genres = new ArrayList<String>();
+                        for (StringTokenizer genreTokenizer = new StringTokenizer(genresStr, ", "); genreTokenizer.hasMoreTokens(); ) {
+                            genres.add(genreTokenizer.nextToken());
+                        }
+                        programInfo.setGenres(genres);
+                        break;
+
+                    case "episodeTitle":
+                        if (programInfo == null) {
+                            programInfo = new ProgramInfo();
+                        }
+                        programInfo.setSecondaryTitle(reader.nextString());
+                        break;
+
+                    case "seasonTitle":
+                        if (programInfo == null) {
+                            programInfo = new ProgramInfo();
+                            programInfo.setSeriesInfo(new SeriesInfo());
+                        } else if (programInfo.getSeriesInfo() == null) {
+                            programInfo.setSeriesInfo(new SeriesInfo());
+                        }
+                        programInfo.getSeriesInfo().setSeriesName(reader.nextString());
+                        break;
+
+                    case "seasonNumber":
+                        if (programInfo == null) {
+                            programInfo = new ProgramInfo();
+                            programInfo.setSeriesInfo(new SeriesInfo());
+                        } else if (programInfo.getSeriesInfo() == null) {
+                            programInfo.setSeriesInfo(new SeriesInfo());
+                        }
+                        programInfo.getSeriesInfo().setSeasonNumber(reader.nextInt());
+                        break;
+
+                    case "episodeNumber":
+                        if (programInfo == null) {
+                            programInfo = new ProgramInfo();
+                            programInfo.setSeriesInfo(new SeriesInfo());
+                        } else if (programInfo.getSeriesInfo() == null) {
+                            programInfo.setSeriesInfo(new SeriesInfo());
+                        }
+                        programInfo.getSeriesInfo().setEpisodeNumber(reader.nextInt());
+                        break;
+
+                    default:
+                        reader.skipValue();
+                        break;
+                }
             } else if (reader.peek() != JsonToken.END_DOCUMENT)
                 reader.skipValue();
-        } catch (IOException e) {
-            e.printStackTrace();
+
+            else
+                break;
         }
+
+        if (reader.peek() == JsonToken.END_OBJECT) {
+            reader.endObject();
+        } else if (reader.peek() != JsonToken.END_DOCUMENT)
+            reader.skipValue();
     }
 
+
     protected Epg(Parcel in) {
+        channel = in.readParcelable(Channel.class.getClassLoader());
         _id = in.readString();
         productId = in.readString();
         title = in.readString();
         parentalGuidance = in.readString();
         lastUpdateTime = in.readString();
-        genre = in.readString();
         eventId = in.readString();
         externalId = in.readString();
+        genre = in.readString();
+        startTime = in.readString();
+        endTime = in.readString();
         thumb = in.readString();
-        channelName = in.readString();
-        channelLogo = in.readString();
         epgChannelNumber = in.readInt();
         positionId = in.readInt();
-    }
-
-    @Override
-    public void writeToParcel(Parcel dest, int flags) {
-        dest.writeString(_id);
-        dest.writeString(productId);
-        dest.writeString(title);
-        dest.writeString(parentalGuidance);
-        dest.writeString(lastUpdateTime);
-        dest.writeString(genre);
-        dest.writeString(eventId);
-        dest.writeString(externalId);
-        dest.writeString(thumb);
-        dest.writeString(channelName);
-        dest.writeString(channelLogo);
-        dest.writeInt(epgChannelNumber);
-        dest.writeInt(positionId);
-    }
-
-    @Override
-    public int describeContents() {
-        return 0;
     }
 
     public static final Creator<Epg> CREATOR = new Creator<Epg>() {
@@ -453,10 +489,6 @@ public class Epg implements Parcelable, Comparable<Epg> {
         return programInfo;
     }
 
-    public SeriesInfo getSeriesInfo() {
-        return seriesInfo;
-    }
-
     public String getProductId() {
         return productId;
     }
@@ -501,20 +533,16 @@ public class Epg implements Parcelable, Comparable<Epg> {
         return thumb;
     }
 
-    public String getChannelName() {
-        return channelName;
-    }
-
-    public String getChannelLogo() {
-        return channelLogo;
-    }
-
     public String getExternalId() {
         return externalId;
     }
 
     public String getGenre() {
         return genre;
+    }
+
+    public Channel getChannel() {
+        return channel;
     }
 
     @Override
@@ -524,7 +552,6 @@ public class Epg implements Parcelable, Comparable<Epg> {
                 ", audioInfos=" + audioInfos +
                 ", reschedules=" + reschedules +
                 ", programInfo=" + programInfo +
-                ", seriesInfo=" + seriesInfo +
                 ", _id='" + _id + '\'' +
                 ", productId='" + productId + '\'' +
                 ", title='" + title + '\'' +
@@ -536,8 +563,6 @@ public class Epg implements Parcelable, Comparable<Epg> {
                 ", genre='" + genre + '\'' +
                 ", endTime='" + endTime + '\'' +
                 ", thumb='" + thumb + '\'' +
-                ", channelName='" + channelName + '\'' +
-                ", channelLogo='" + channelLogo + '\'' +
                 ", epgChannelNumber=" + epgChannelNumber +
                 ", positionId=" + positionId +
                 '}';
@@ -555,5 +580,28 @@ public class Epg implements Parcelable, Comparable<Epg> {
             return 1;
 
         return 0;
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel parcel, int i) {
+        parcel.writeParcelable(channel, i);
+        parcel.writeString(_id);
+        parcel.writeString(productId);
+        parcel.writeString(title);
+        parcel.writeString(parentalGuidance);
+        parcel.writeString(lastUpdateTime);
+        parcel.writeString(eventId);
+        parcel.writeString(externalId);
+        parcel.writeString(genre);
+        parcel.writeString(startTime);
+        parcel.writeString(endTime);
+        parcel.writeString(thumb);
+        parcel.writeInt(epgChannelNumber);
+        parcel.writeInt(positionId);
     }
 }

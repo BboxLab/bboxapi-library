@@ -14,6 +14,9 @@ public class SeriesInfo implements Serializable {
     private int totalEpisodeNumber;
     private boolean seasonPremiere;
 
+    /*package protected*/ SeriesInfo() {
+    }
+
     public SeriesInfo(JsonReader reader) {
         try {
             reader.beginObject();
@@ -87,6 +90,26 @@ public class SeriesInfo implements Serializable {
 
     public boolean isSeasonPremiere() {
         return seasonPremiere;
+    }
+
+    public void setSeriesName(String seriesName) {
+        this.seriesName = seriesName;
+    }
+
+    public void setSeasonNumber(int seasonNumber) {
+        this.seasonNumber = seasonNumber;
+    }
+
+    public void setEpisodeNumber(int episodeNumber) {
+        this.episodeNumber = episodeNumber;
+    }
+
+    public void setTotalEpisodeNumber(int totalEpisodeNumber) {
+        this.totalEpisodeNumber = totalEpisodeNumber;
+    }
+
+    public void setSeasonPremiere(boolean seasonPremiere) {
+        this.seasonPremiere = seasonPremiere;
     }
 
     @Override

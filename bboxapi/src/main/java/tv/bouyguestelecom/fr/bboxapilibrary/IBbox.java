@@ -12,6 +12,7 @@ import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxGetEpg;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxGetEpgSimple;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxGetListEpg;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxGetOpenedChannels;
+import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxGetRecommendationTv;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxGetSessionId;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxGetSpideoTv;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxGetVolume;
@@ -27,6 +28,7 @@ import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxUnsubscribe;
 import tv.bouyguestelecom.fr.bboxapilibrary.model.ChannelProfil;
 import tv.bouyguestelecom.fr.bboxapilibrary.model.EpgMode;
 import tv.bouyguestelecom.fr.bboxapilibrary.model.Moment;
+import tv.bouyguestelecom.fr.bboxapilibrary.model.Univers;
 
 public interface IBbox {
 
@@ -40,6 +42,8 @@ public interface IBbox {
 
     void getChannel(String appId, String appSecret, int epgChannelNumber, IBboxGetChannel iBboxGetChannel);
 
+    void getChannels(final String ip, String appId, String appSecret, final IBboxGetChannels iBboxGetChannels);
+
     void getChannels(String appId, String appSecret, ChannelProfil profil, IBboxGetChannels iBboxGetChannels);
 
     void getEpg(String appId, String appSecret, int epgChannelNumber, int period, String externalId, int limit, int page, EpgMode mode, IBboxGetListEpg iBboxGetListEpg);
@@ -48,6 +52,9 @@ public interface IBbox {
 
     void getEpgSimple(String appId, String appSecret, String startTime, String endTime, EpgMode mode, IBboxGetEpgSimple iBboxGetEpgSimple);
 
+   // void getTodayEpgFromBox(final String ip, String appId, String appSecret, final IBboxGetEpgSimple iBboxGetEpgFromBox);
+
+    void getRecommendationsTV(String appId, String appSecret, String user, Univers[] universes, int limit, IBboxGetRecommendationTv iBboxGetRecommendationTv);
     void getRecoTv(String appId, String appSecret, String user, Moment moment, IBboxGetSpideoTv iBboxGetSpideoTv);
 
     void getApps(String ip, String appId, String appSecret, IBboxGetApplications iBboxGetApplications);
@@ -103,6 +110,8 @@ public interface IBbox {
                      final String channelIdOrRoomName, final String appIdFromRegister, final String msgToSend,
                      final IBboxSendMessage iBboxSendMessage);
 
+
+    void SearchEpgBySummary(String appid, String appSecret, final String token, final String period, final String profil, final int typeEpg, final String epgChannelNumber, final String longSummary);
 
     /*
 

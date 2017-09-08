@@ -2,7 +2,6 @@ package tv.bouyguestelecom.fr.bboxapilibrary;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.util.JsonReader;
 import android.util.Log;
 
 import org.json.JSONArray;
@@ -11,11 +10,8 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
-import java.net.SocketException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -41,6 +37,7 @@ import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxGetEpg;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxGetEpgSimple;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxGetListEpg;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxGetOpenedChannels;
+import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxGetRecommendationTv;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxGetSessionId;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxGetSpideoTv;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxGetToken;
@@ -54,34 +51,36 @@ import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxStartApplication;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxStopApplication;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxSubscribe;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxUnsubscribe;
-import tv.bouyguestelecom.fr.bboxapilibrary.model.Application;
 import tv.bouyguestelecom.fr.bboxapilibrary.model.Channel;
-import tv.bouyguestelecom.fr.bboxapilibrary.model.ChannelLight;
 import tv.bouyguestelecom.fr.bboxapilibrary.model.ChannelProfil;
 import tv.bouyguestelecom.fr.bboxapilibrary.model.Epg;
 import tv.bouyguestelecom.fr.bboxapilibrary.model.EpgMode;
-import tv.bouyguestelecom.fr.bboxapilibrary.model.EpgSimple;
 import tv.bouyguestelecom.fr.bboxapilibrary.model.Moment;
+import tv.bouyguestelecom.fr.bboxapilibrary.model.Univers;
 import tv.bouyguestelecom.fr.bboxapilibrary.util.ListenerList;
+import tv.bouyguestelecom.fr.bboxapilibrary.util.Parser;
 import tv.bouyguestelecom.fr.bboxapilibrary.ws.WebSocket;
 
 
 public class Bbox implements IBbox {
     private static final String TAG = Bbox.class.getSimpleName();
+    private static final String VERSION = "v1.3";
 
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
-    private static final String URL_API_TOKEN = "https://api.bbox.fr/v1.1/security/token";
-    private static final String URL_GET_RECO_TV = "https://api.bbox.fr/v1.1/media/live/recommendations";
-    private static final String URL_GET_EPG = "https://api.bbox.fr/v1.1/media/live";
-    private static final String URL_GET_EPG_SIMPLE = "https://api.bbox.fr/v1.1/media/live/epg";
-    private static final String URL_GET_CHANNELS = "https://api.bbox.fr/v1.1/media/channels";
+    private static final String URL_API_TOKEN = "https://api.bbox.fr/" + VERSION + "/security/token";
+    private static final String URL_GET_RECO_TV = "https://api.bbox.fr/" + VERSION + "/media/live/recommendations";
+    private static final String URL_GET_EPG = "https://api.bbox.fr/" + VERSION + "/media/live";
+    private static final String URL_GET_EPG_SIMPLE = "https://api.bbox.fr/" + VERSION + "/media/live/epg";
+    private static final String URL_GET_CHANNELS = "https://api.bbox.fr/" + VERSION + "/media/channels";
 
     private static final String URL_API_BOX = "http://@IP:8080/api.bbox.lan/v0";
     private static final String URL_SESSION_ID = URL_API_BOX + "/security/sessionId";
     private static final String URL_GET_APPLICATIONS = URL_API_BOX + "/applications";
+    private static final String LOCAL_URL_GET_CHANNELS = URL_API_BOX + "/media/tvchannellist";
+   // private static final String LOCAL_URL_GET_TODAY_EPG = URL_API_BOX + "/media/programs";
+  //  private static final String LOCAL_URL_GET_EPG_BY_ID = URL_API_BOX + "/media/program";
     private static final String URL_GET_CURRENT_CHANNEL = URL_API_BOX + "/media";
-    private static final String URL_GET_CHANNEL_LIST = URL_API_BOX + "/media/tvchannellist";
     private static final String URL_REGISTER_APP = URL_API_BOX + "/applications/register";
     private static final String URL_NOTIFICATION = URL_API_BOX + "/notification";
 
@@ -92,7 +91,7 @@ public class Bbox implements IBbox {
 
     private static Bbox instance;
 
-    private OkHttpClient mClient = new OkHttpClient();
+    private OkHttpClient mClient;
 
     private WebSocket mWebSocket;
 
@@ -107,8 +106,13 @@ public class Bbox implements IBbox {
     private ListenerList<IBboxApplication> notifApps = new ListenerList<>();
     private ListenerList<IBboxMessage> notifMsg = new ListenerList<>();
 
+    private static int ALLEPG = 0;
+    private static int CURRENTEPG = 1;
+    private static int SELECTEDEPG = 2;
+
 
     private Bbox() {
+        mClient = new OkHttpClient();
         mClient.newBuilder().connectTimeout(10, TimeUnit.SECONDS).writeTimeout(15, TimeUnit.SECONDS).readTimeout(15, TimeUnit.SECONDS).connectionPool(new ConnectionPool(1, 5, TimeUnit.MINUTES));
 
     }
@@ -145,7 +149,6 @@ public class Bbox implements IBbox {
                         iBboxGetToken.onResponse(tokenCloud);
                         mValidityToken = System.currentTimeMillis() + 24 * 60 * 60 * 1000;
                         mToken = tokenCloud;
-                        //Log.d(TAG, "token = " + mToken);
                     } else {
                         iBboxGetToken.onFailure(call.request(), response.code());
                         Log.e(TAG, "Get token failed");
@@ -162,6 +165,7 @@ public class Bbox implements IBbox {
         }
 
     }
+
 
     public void getSessionId(final String ip, String appId, String appSecret, final IBboxGetSessionId iBboxGetSessionId) {
         if (hasSecurity) {
@@ -194,7 +198,8 @@ public class Bbox implements IBbox {
                                         mSessionId = response.headers().get("x-sessionid");
                                         mValiditySessionId = System.currentTimeMillis() + 60 * 1000;
                                         iBboxGetSessionId.onResponse(mSessionId);
-                                    } else {
+                                    } else { int responseCode = response.code();
+                                        Log.w(TAG, "Cannot obtain bboxapi sessionId: "+responseCode);
                                         mSessionId = null;
                                         mValiditySessionId = (long) -1;
                                         iBboxGetSessionId.onFailure(call.request(), response.code());
@@ -204,7 +209,8 @@ public class Bbox implements IBbox {
                                 }
                             });
                         } catch (JSONException e) {
-                            Log.e(TAG, "Error occured", e);
+                            Log.e(TAG, "Cannot build getSessionId() request", e);
+                            iBboxGetSessionId.onFailure(null, 500);
                         }
                     } else {
                         iBboxGetSessionId.onResponse(mSessionId);
@@ -231,7 +237,7 @@ public class Bbox implements IBbox {
             @Override
             public void onResponse(String token) {
                 HttpUrl.Builder urlBuilder = HttpUrl.parse(URL_GET_CHANNELS).newBuilder();
-                urlBuilder.addPathSegment("" + epgChannelNumber);
+                urlBuilder.addPathSegment(String.valueOf(epgChannelNumber));
 
                 Request request = new Request.Builder()
                         .url(urlBuilder.build().toString())
@@ -249,7 +255,7 @@ public class Bbox implements IBbox {
                             iBboxGetChannel.onFailure(response.request(), response.code());
 
                         else
-                            iBboxGetChannel.onResponse(parseJsonChannel(response.body().byteStream()));
+                            iBboxGetChannel.onResponse(Parser.parseJsonChannel(response.body().byteStream()));
 
                         response.body().close();
                     }
@@ -259,6 +265,47 @@ public class Bbox implements IBbox {
             @Override
             public void onFailure(Request request, int errorCode) {
                 iBboxGetChannel.onFailure(request, errorCode);
+            }
+        });
+    }
+
+    @Override
+    public void getChannels(final String ip, String appId, String appSecret, final IBboxGetChannels iBboxGetChannels) {
+        getSessionId(ip, appId, appSecret, new IBboxGetSessionId() {
+            @Override
+            public void onResponse(String sessionId) {
+                final Request request = new Request.Builder()
+                        .url(LOCAL_URL_GET_CHANNELS.replace("@IP", ip))
+                        .header("x-sessionid", sessionId)
+                        .build();
+
+                Call mCall = mClient.newCall(request);
+                mCall.enqueue(new Callback() {
+                    public void onFailure(Call call, IOException e) {
+                        iBboxGetChannels.onFailure(call.request(), HttpURLConnection.HTTP_BAD_REQUEST);
+                    }
+
+                    public void onResponse(Call call, Response response) throws IOException {
+                        Log.i(TAG, "Get channels success");
+                        if (response.code() == HttpURLConnection.HTTP_OK) {
+                            List<Channel> channels = Parser.parseJsonChannels(response);
+                            String logoUrlPrefix = URL_API_BOX.replace("@IP", ip);
+                            for (Channel channel : channels) {
+                                channel.setLogo(logoUrlPrefix + "/media/" + channel.getPositionId() + "/image");
+                            }
+                            iBboxGetChannels.onResponse(channels);
+                        } else {
+                            iBboxGetChannels.onFailure(response.request(), response.code());
+                        }
+
+                        response.body().close();
+                    }
+                });
+            }
+
+            @Override
+            public void onFailure(Request request, int errorCode) {
+                iBboxGetChannels.onFailure(request, errorCode);
             }
         });
     }
@@ -283,9 +330,9 @@ public class Bbox implements IBbox {
                     }
 
                     public void onResponse(Call call, Response response) throws IOException {
-                        //Log.i(TAG, "Get channels success");
+                        Log.i(TAG, "Get channels success");
                         if (response.code() == HttpURLConnection.HTTP_OK)
-                            iBboxGetChannels.onResponse(parseJsonChannels(response));
+                            iBboxGetChannels.onResponse(Parser.parseJsonChannels(response));
                         else
                             iBboxGetChannels.onFailure(response.request(), response.code());
 
@@ -308,12 +355,12 @@ public class Bbox implements IBbox {
             @Override
             public void onResponse(String token) {
                 HttpUrl.Builder urlBuilder = HttpUrl.parse(URL_GET_EPG).newBuilder();
-                urlBuilder.addQueryParameter("period", "" + period);
-                urlBuilder.addQueryParameter("epgChannelNumber", "" + epgChannelNumber);
-                urlBuilder.addQueryParameter("externalId", "" + externalId);
-                urlBuilder.addQueryParameter("limit", "" + limit);
-                urlBuilder.addQueryParameter("page", "" + page);
-                urlBuilder.addQueryParameter("mode", "" + mode.getValue());
+                urlBuilder.addQueryParameter("period", String.valueOf(period));
+                urlBuilder.addQueryParameter("epgChannelNumber", String.valueOf(epgChannelNumber));
+                urlBuilder.addQueryParameter("externalId", String.valueOf(externalId));
+                urlBuilder.addQueryParameter("limit", String.valueOf(limit));
+                urlBuilder.addQueryParameter("page", String.valueOf(page));
+                urlBuilder.addQueryParameter("mode", mode.getValue());
 
                 Request request = new Request.Builder()
                         .url(urlBuilder.build().toString())
@@ -331,7 +378,7 @@ public class Bbox implements IBbox {
                     @Override
                     public void onResponse(Call call, Response response) throws IOException {
                         if (response.code() == HttpURLConnection.HTTP_OK)
-                            iBboxGetListEpg.onResponse(parseJsonListEpg(response));
+                            iBboxGetListEpg.onResponse(Parser.parseJsonListEpg(response));
 
                         else
                             iBboxGetListEpg.onFailure(call.request(), response.code());
@@ -373,7 +420,7 @@ public class Bbox implements IBbox {
                     @Override
                     public void onResponse(Call call, Response response) throws IOException {
                         if (response.code() == HttpURLConnection.HTTP_OK)
-                            iBboxGetEpg.onResponse(parseJsonEpg(response));
+                            iBboxGetEpg.onResponse(Parser.parseJsonEpg(response));
 
                         else
                             iBboxGetEpg.onFailure(call.request(), response.code());
@@ -389,6 +436,42 @@ public class Bbox implements IBbox {
             }
         });
     }
+
+    /*public void getEpgByProgramId(final String ip, String appId, String appSecret, final String programId, final IBboxGetEpg iBboxGetEpg) {
+        getSessionId(ip, appId, appSecret, new IBboxGetSessionId() {
+            @Override
+            public void onResponse(String sessionId) {
+                HttpUrl.Builder urlBuilder = HttpUrl.parse(LOCAL_URL_GET_EPG_BY_ID.replace("@IP", ip)).newBuilder();
+                urlBuilder.addPathSegment(programId);
+
+                final Request request = new Request.Builder()
+                        .url(urlBuilder.build())
+                        .header("x-sessionid", sessionId)
+                        .build();
+
+                Call mCall = mClient.newCall(request);
+                mCall.enqueue(new Callback() {
+                    public void onResponse(Call call, Response response) throws IOException {
+                        if (response.code() == HttpURLConnection.HTTP_OK)
+                            iBboxGetEpg.onResponse(Parser.parseJsonEpg(response));
+                        else
+                            iBboxGetEpg.onFailure(call.request(), response.code());
+
+                        response.body().close();
+                    }
+
+                    public void onFailure(Call call, IOException e) {
+                        iBboxGetEpg.onFailure(call.request(), HttpURLConnection.HTTP_BAD_REQUEST);
+                    }
+                });
+            }
+
+            @Override
+            public void onFailure(Request request, int errorCode) {
+                iBboxGetEpg.onFailure(request, errorCode);
+            }
+        });
+    }*/
 
     @Override
     public void getEpgSimple(String appId, String appSecret, final String startTime, final String endTime, final EpgMode mode, final IBboxGetEpgSimple iBboxGetEpgSimple) {
@@ -415,7 +498,7 @@ public class Bbox implements IBbox {
                     @Override
                     public void onResponse(Call call, Response response) throws IOException {
                         if (response.code() == HttpURLConnection.HTTP_OK)
-                            iBboxGetEpgSimple.onResponse(parseJsonEpgSimple(response));
+                            iBboxGetEpgSimple.onResponse(Parser.parseJsonEpgSimple(response));
 
                         else
                             iBboxGetEpgSimple.onFailure(call.request(), response.code());
@@ -431,6 +514,43 @@ public class Bbox implements IBbox {
             }
         });
     }
+
+   /* @Override
+    public void getTodayEpgFromBox(final String ip, String appId, String appSecret, final IBboxGetEpgSimple iBboxGetEpgSimple) {
+        getSessionId(ip, appId, appSecret, new IBboxGetSessionId() {
+            @Override
+            public void onResponse(String sessionId) {
+                final Request request = new Request.Builder()
+                        .url(LOCAL_URL_GET_TODAY_EPG.replace("@IP", ip))
+                        .header("x-sessionid", sessionId)
+                        .build();
+
+                Call mCall = mClient.newCall(request);
+                mCall.enqueue(new Callback() {
+                    public void onResponse(Call call, Response response) throws IOException {
+                        Log.i(TAG, "Get epg success");
+                        if (response.code() == HttpURLConnection.HTTP_OK) {
+                            iBboxGetEpgSimple.onResponse(parseJsonEpgSimple(response));
+                        } else {
+                            iBboxGetEpgSimple.onFailure(response.request(), response.code());
+                        }
+
+                        response.body().close();
+                    }
+
+                    public void onFailure(Call call, IOException e) {
+                        Log.e(TAG, "getTodayEpgFromBox()", e);
+                        iBboxGetEpgSimple.onFailure(call.request(), HttpURLConnection.HTTP_BAD_REQUEST);
+                    }
+                });
+            }
+
+            @Override
+            public void onFailure(Request request, int errorCode) {
+                iBboxGetEpgSimple.onFailure(request, errorCode);
+            }
+        });
+    }*/
 
     @Override
     public void getRecoTv(final String appId, final String appSecret, final String user, final Moment moment, final IBboxGetSpideoTv iBboxGetSpideoTv) {
@@ -458,7 +578,7 @@ public class Bbox implements IBbox {
                         @Override
                         public void onResponse(Call call, Response response) throws IOException {
                             if (response.code() == HttpURLConnection.HTTP_OK)
-                                iBboxGetSpideoTv.onResponse(parseJsonListEpg(response));
+                                iBboxGetSpideoTv.onResponse(Parser.parseJsonListEpg(response));
 
                             else if (response.code() == HttpURLConnection.HTTP_UNAUTHORIZED) {
                                 iBboxGetSpideoTv.onResponse(new ArrayList<Epg>());
@@ -476,6 +596,73 @@ public class Bbox implements IBbox {
             @Override
             public void onFailure(Request request, int errorCode) {
                 iBboxGetSpideoTv.onFailure(request, errorCode);
+            }
+        });
+    }
+    @Override
+    public void getRecommendationsTV(final String appId, final String appSecret, final String user, final Univers[] universes, final int limit,
+                                     final IBboxGetRecommendationTv iBboxGetRecommendationTv) {
+        getToken(appId, appSecret, new IBboxGetToken() {
+            @Override
+            public void onResponse(String token) {
+                try {
+                    RequestBody body = RequestBody.create(JSON, new JSONObject().put("user", user).toString());
+                    HttpUrl.Builder urlBuilder = HttpUrl.parse(URL_GET_RECO_TV).newBuilder();
+
+                    String pathSegment = "";
+
+                    for (Univers univers : universes) {
+                        pathSegment += univers.getValue() + ",";
+                    }
+
+                    pathSegment = pathSegment.substring(0, pathSegment.length() - 1);
+
+                    urlBuilder.addPathSegment(pathSegment);
+
+                    StringBuilder universesStr=new StringBuilder();
+                    for (Univers univers : universes) {
+                        universesStr.append(univers.getValue());
+                        universesStr.append(',');
+                    }
+                    universesStr.deleteCharAt(universesStr.length()-1);
+                    urlBuilder.addPathSegment(universesStr.toString());
+                    urlBuilder.addQueryParameter("limit", String.valueOf(limit));
+
+                    Request request = new Request.Builder()
+                            .url(urlBuilder.build().toString())
+                            .post(body)
+                            .addHeader("x-token", token)
+                            .build();
+
+                    Call call = mClient.newCall(request);
+                    call.enqueue(new Callback() {
+                        @Override
+                        public void onFailure(Call call, IOException e) {
+                            iBboxGetRecommendationTv.onFailure(call.request(), HttpURLConnection.HTTP_INTERNAL_ERROR);
+                        }
+
+                        @Override
+                        public void onResponse(Call call, Response response) throws IOException {
+                            if (response.code() == HttpURLConnection.HTTP_OK)
+                                iBboxGetRecommendationTv.onResponse(Parser.parseJsonListEpg(response));
+
+                            else if (response.code() == HttpURLConnection.HTTP_UNAUTHORIZED) {
+                                iBboxGetRecommendationTv.onResponse(new ArrayList<Epg>());
+                            } else
+                                iBboxGetRecommendationTv.onFailure(call.request(), response.code());
+
+                            response.body().close();
+                        }
+                    });
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                    iBboxGetRecommendationTv.onFailure(null, 500);
+                }
+            }
+
+            @Override
+            public void onFailure(Request request, int errorCode) {
+                iBboxGetRecommendationTv.onFailure(request, errorCode);
             }
         });
     }
@@ -498,7 +685,7 @@ public class Bbox implements IBbox {
 
                     public void onResponse(Call call, Response response) throws IOException {
                         if (response.code() == HttpURLConnection.HTTP_OK)
-                            iBboxGetApplications.onResponse(parseJsonApplications(URL_API_BOX.replace("@IP", ip), response));
+                            iBboxGetApplications.onResponse(Parser.parseJsonApplications(URL_API_BOX.replace("@IP", ip), response));
 
                         else
                             iBboxGetApplications.onFailure(call.request(), response.code());
@@ -509,8 +696,7 @@ public class Bbox implements IBbox {
             }
 
             public void onFailure(Request request, int errorCode) {
-                // iBboxGetApplications.onFailure(request, errorCode);
-                onResponse(null);
+                iBboxGetApplications.onFailure(request, errorCode);
             }
         });
     }
@@ -533,7 +719,7 @@ public class Bbox implements IBbox {
 
                     public void onResponse(Call call, Response response) throws IOException {
                         if (response.code() == HttpURLConnection.HTTP_OK)
-                            iBboxGetCurrentChannel.onResponse(parseJsonChannel(response.body().byteStream()));
+                            iBboxGetCurrentChannel.onResponse(Parser.parseJsonChannel(response.body().byteStream()));
 
                         else
                             iBboxGetCurrentChannel.onFailure(call.request(), response.code());
@@ -715,130 +901,7 @@ public class Bbox implements IBbox {
         }
     }
 
-    private List<Channel> parseJsonChannels(Response response) {
-        List<Channel> channels = new ArrayList<>();
 
-        if (response.code() == HttpURLConnection.HTTP_OK) {
-            try {
-                JsonReader reader = new JsonReader(new InputStreamReader(response.body().byteStream(), "UTF-8"));
-
-                reader.beginArray();
-
-                while (reader.hasNext()) {
-                    Channel channel = new Channel(reader);
-                    channels.add(channel);
-                }
-
-                reader.endArray();
-                reader.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        return channels;
-    }
-
-
-    private List<Epg> parseJsonListEpg(Response response) throws SocketException {
-        List<Epg> epgs = new ArrayList<>();
-
-        try {
-            JsonReader reader = new JsonReader(new InputStreamReader(response.body().byteStream(), "UTF-8"));
-
-            reader.beginArray();
-
-            while (reader.hasNext()) {
-                Epg epg = new Epg(reader);
-                epgs.add(epg);
-            }
-
-            reader.endArray();
-            reader.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        return epgs;
-    }
-
-    private List<EpgSimple> parseJsonEpgSimple(Response response) throws SocketException {
-        List<EpgSimple> epgs = new ArrayList<>();
-
-        try {
-            JsonReader reader = new JsonReader(new InputStreamReader(response.body().byteStream(), "UTF-8"));
-            reader.beginArray();
-
-            while (reader.hasNext()) {
-                EpgSimple epg = new EpgSimple(reader);
-                epgs.add(epg);
-            }
-
-            reader.endArray();
-            reader.close();
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        return epgs;
-    }
-
-    private Epg parseJsonEpg(Response response) throws SocketException {
-        try {
-            JsonReader reader = new JsonReader(new InputStreamReader(response.body().byteStream(), "UTF-8"));
-            Epg epg = new Epg(reader);
-            reader.close();
-            return epg;
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        return null;
-    }
-
-    private List<Application> parseJsonApplications(String ip, Response response) {
-        List<Application> applications = new ArrayList<>();
-
-        try {
-            JsonReader reader = new JsonReader(new InputStreamReader(response.body().byteStream(), "UTF-8"));
-            reader.beginArray();
-
-            while (reader.hasNext()) {
-                Application application = new Application(ip, reader);
-
-                if (!application.getAppName().equals("Lanceur Leanback")
-                        && !application.getAppName().equals("SmartUI")
-                        && !application.getAppName().equals("Services Google Play"))
-                    applications.add(application);
-            }
-
-            reader.endArray();
-            reader.close();
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        Collections.sort(applications);
-
-        return applications;
-    }
-
-    private Channel parseJsonChannel(InputStream inputStream) {
-        Channel channel = null;
-
-        try {
-            JsonReader reader = new JsonReader(new InputStreamReader(inputStream, "UTF-8"));
-            channel = new Channel(reader);
-            reader.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        return channel;
-    }
 
     private String buildJsonRequestToken(String appId, String appSecret) {
         JSONObject jObject = new JSONObject();
@@ -846,7 +909,7 @@ public class Bbox implements IBbox {
             jObject.put("appId", appId);
             jObject.put("appSecret", appSecret);
         } catch (JSONException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Cannot build token request", e);
         }
         return jObject.toString();
     }
@@ -863,7 +926,7 @@ public class Bbox implements IBbox {
             jObject.put("appId", appResgisterId);
             jObject.put("resources", ressouces);
         } catch (JSONException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Cannot build notif request", e);
         }
         return jObject.toString();
     }
@@ -947,7 +1010,6 @@ public class Bbox implements IBbox {
                             //Log.i(TAG, "Start app failed "+response.code());
                             iBboxStartApplication.onFailure(call.request(), response.code());
                         }
-
                         response.body().close();
                     }
                 });
@@ -1186,7 +1248,7 @@ public class Bbox implements IBbox {
             @Override
             public void onResponse(String sessionId) {
 
-                String url = URL_GET_CHANNEL_LIST;
+                String url = LOCAL_URL_GET_CHANNELS;
                 final Request request = new Request.Builder()
                         .url(url.replace("@IP", ip))
                         .header("x-sessionid", sessionId)
@@ -1203,7 +1265,7 @@ public class Bbox implements IBbox {
                             iBboxGetChannelListOnBox.onFailure(response.request(), response.code());
 
                         else
-                            iBboxGetChannelListOnBox.onResponse(parseJsonChannelsLight(response));
+                            iBboxGetChannelListOnBox.onResponse(Parser.parseJsonChannelsLight(response));
                         response.body().close();
                     }
                 });
@@ -1216,29 +1278,6 @@ public class Bbox implements IBbox {
         });
     }
 
-    private List<ChannelLight> parseJsonChannelsLight(Response response) {
-        List<ChannelLight> channels = new ArrayList<>();
-
-        if (response.code() == HttpURLConnection.HTTP_OK) {
-            try {
-                JsonReader reader = new JsonReader(new InputStreamReader(response.body().byteStream(), "UTF-8"));
-
-                reader.beginArray();
-
-                while (reader.hasNext()) {
-                    ChannelLight channel = new ChannelLight(reader);
-                    channels.add(channel);
-                }
-
-                reader.endArray();
-                reader.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        return channels;
-    }
 
     @Override
     public void getAppInfo(final String ip, String appId, String appSecret, final String packageName, final IBboxGetApplications iBboxGetApplications) {
@@ -1257,7 +1296,7 @@ public class Bbox implements IBbox {
 
                     public void onResponse(Call call, Response response) throws IOException {
                         if (response.code() == HttpURLConnection.HTTP_OK)
-                            iBboxGetApplications.onResponse(parseJsonApplications(URL_API_BOX.replace("@IP", ip), response));
+                            iBboxGetApplications.onResponse(Parser.parseJsonApplications(URL_API_BOX.replace("@IP", ip), response));
 
                         else
                             iBboxGetApplications.onFailure(call.request(), response.code());
@@ -1326,7 +1365,7 @@ public class Bbox implements IBbox {
                     public void onResponse(Call call, Response response) throws IOException {
                         if (response.code() == HttpURLConnection.HTTP_OK) {
                             //Log.i(TAG, "Get notification channels success");
-                            iBboxGetOpenedChannels.onResponse(parseJsonOpenedChannel(response));
+                            iBboxGetOpenedChannels.onResponse(Parser.parseJsonOpenedChannel(response));
                         } else
                             iBboxGetOpenedChannels.onFailure(call.request(), response.code());
 
@@ -1342,28 +1381,7 @@ public class Bbox implements IBbox {
         });
     }
 
-    private List<String> parseJsonOpenedChannel(Response response) {
-        List<String> channels = new ArrayList<>();
 
-        if (response.code() == HttpURLConnection.HTTP_OK) {
-            try {
-
-                JSONArray jsonArray = new JSONArray(response.body().string());
-
-                for (int i = 0; i < jsonArray.length(); i++) {
-                    String channel = new String(jsonArray.getString(i));
-                    channels.add(channel);
-                }
-
-                //Log.i(TAG, "channels : " + channels.toString());
-
-            } catch (JSONException | IOException e) {
-                Log.e(TAG, "Error occured", e);
-            }
-        }
-
-        return channels;
-    }
 
     @Override
     public void unsubscribeNotification(final String ip, String appId, String appSecret, final String channelId,
@@ -1454,6 +1472,127 @@ public class Bbox implements IBbox {
             }
         });
     }
+
+
+
+
+    /*
+    @epgChannelNumber set to null if @typeEpg = 0 or 1
+    @typeEpg 0 all
+             1 current channel
+             2 list epg need to set epgChannelNumber
+    */
+
+    @Override
+    public void SearchEpgBySummary(String appid, String appSecret, final String token, final String period, final String profil, final int typeEpg, final String epgChannelNumber, final String longSummary) {
+
+        Bbox.getInstance().getCurrentChannel("127.0.0.1", appid, appSecret, new IBboxGetCurrentChannel() {
+            @Override
+            public void onResponse(Channel channel) {
+                Log.v(TAG, "Get current channels response");
+
+                if (channel != null
+                        && "play".equals(channel.getMediaState())) {
+                    Log.v(TAG, "curent channel ==>  " + channel.toString());
+                    getChanel(token, profil, channel.getName(), period, typeEpg, epgChannelNumber, longSummary);
+                }
+            }
+
+            @Override
+            public void onFailure(Request request, int i) {
+                Log.e(TAG, "Get current channels failure " + i);
+            }
+        });
+    }
+
+    private static void getChanel(final String token, final String profil, String name, final String period, final int typeEpg, final String epgChannelNumber, final String longSummary) {
+        OkHttpClient httpClient = new OkHttpClient();
+        HttpUrl.Builder urlBuilder = HttpUrl.parse("https://api.bbox.fr/v1.3/media/channels").newBuilder();
+        urlBuilder.addQueryParameter("profil", profil);
+        urlBuilder.addQueryParameter("name", name);
+
+        Request request = new Request.Builder()
+                .url(urlBuilder.build().toString())
+                .addHeader("x-token", token)
+                .build();
+
+        Call call = httpClient.newCall(request);
+
+        call.enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(okhttp3.Call call, IOException e) {
+                Log.e(TAG, "Get channels failure");
+            }
+
+            @Override
+            public void onResponse(okhttp3.Call call, okhttp3.Response response) throws IOException {
+                Log.v(TAG, "Get channels response");
+
+                if (response.code() == HttpURLConnection.HTTP_OK) {
+                    Log.v(TAG, "Get channels success");
+                    List<Channel> channels = Parser.parseChannels(response);
+
+                    if (!channels.isEmpty()) {
+                        Log.v(TAG, "channel ==> " + channels.get(0));
+
+                        if (typeEpg == ALLEPG)
+                            getDetailProgram(token, period, profil, null, longSummary);
+                        else if (typeEpg == CURRENTEPG)
+                            getDetailProgram(token, period, profil, String.valueOf(channels.get(0).getEpgChannelNumber()), longSummary);
+
+                        else if (typeEpg == SELECTEDEPG)
+                            getDetailProgram(token, period, profil, epgChannelNumber, longSummary);
+
+                    }
+                }
+            }
+        });
+    }
+
+    private static void getDetailProgram(String token, String period, String profil, String epgChannelNumber, String longSummary) {
+        OkHttpClient httpClient = new OkHttpClient();
+        HttpUrl.Builder urlBuilder = HttpUrl.parse("https://api.bbox.fr/v1.3/media/live").newBuilder();
+        urlBuilder.addQueryParameter("period", period);
+        urlBuilder.addQueryParameter("profil", profil);
+        if (epgChannelNumber != null && !epgChannelNumber.isEmpty())
+            urlBuilder.addQueryParameter("epgChannelNumber", epgChannelNumber);
+        urlBuilder.addQueryParameter("longSummary", longSummary);
+
+        Request request = new Request.Builder()
+                .url(urlBuilder.build().toString())
+                .addHeader("x-token", token)
+                .build();
+
+        Call call = httpClient.newCall(request);
+
+        call.enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(okhttp3.Call call, IOException e) {
+                Log.e(TAG, "Get getDetailProgram failure");
+            }
+
+            @Override
+            public void onResponse(okhttp3.Call call, okhttp3.Response response) throws IOException {
+                Log.v(TAG, "Get getDetailProgram response");
+
+                if (response.code() == HttpURLConnection.HTTP_OK) {
+                    Log.v(TAG, "Get getDetailProgram success = " + response.toString());
+
+                    List<Epg> detailEpg = Parser.parseJsonListEpg(response);
+
+                    if (!detailEpg.isEmpty()) {
+                        Log.v(TAG, "getDetailProgram ==> " + detailEpg.get(0).getProgramInfo().getLongTitle());
+                        Log.v(TAG, "getDetailProgram ==> " + detailEpg.get(0).getProgramInfo().getLongSummary());
+                        Log.v(TAG, "getDetailProgram ==> " + detailEpg.get(0).getEpgChannelNumber());
+
+                    }
+                }
+            }
+        });
+    }
+
+
+
 
     private String buildJsonRequestMessage(String appId, String msg) {
         JSONObject jObject = new JSONObject();

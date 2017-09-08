@@ -29,6 +29,10 @@ public class ProgramInfo implements Serializable {
     private List<String> subGenres = new ArrayList<>();
     private List<String> keyword = new ArrayList<>();
     private List<Character> characters = new ArrayList<>();
+    private SeriesInfo seriesInfo;
+
+    /*package protected*/ ProgramInfo() {
+    }
 
     public ProgramInfo(JsonReader reader) {
         try {
@@ -141,6 +145,10 @@ public class ProgramInfo implements Serializable {
                             characters = getCharacters(reader);
                         } else
                             reader.skipValue();
+                        break;
+
+                    case "seriesInfo":
+                        seriesInfo = new SeriesInfo(reader);
                         break;
 
                     default:
@@ -300,6 +308,86 @@ public class ProgramInfo implements Serializable {
         return characters;
     }
 
+    public SeriesInfo getSeriesInfo() {
+        return seriesInfo;
+    }
+
+    public void setShortTitle(String shortTitle) {
+        this.shortTitle = shortTitle;
+    }
+
+    public void setLongTitle(String longTitle) {
+        this.longTitle = longTitle;
+    }
+
+    public void setSecondaryTitle(String secondaryTitle) {
+        this.secondaryTitle = secondaryTitle;
+    }
+
+    public void setShortSummary(String shortSummary) {
+        this.shortSummary = shortSummary;
+    }
+
+    public void setLongSummary(String longSummary) {
+        this.longSummary = longSummary;
+    }
+
+    public void setCharacterDisplay(String characterDisplay) {
+        this.characterDisplay = characterDisplay;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider;
+    }
+
+    public void setExternalId(String externalId) {
+        this.externalId = externalId;
+    }
+
+    public void setDuration(String duration) {
+        this.duration = duration;
+    }
+
+    public void setCountryOfOrigin(String countryOfOrigin) {
+        this.countryOfOrigin = countryOfOrigin;
+    }
+
+    public void setProductionDate(int productionDate) {
+        this.productionDate = productionDate;
+    }
+
+    public void setPublicRank(double publicRank) {
+        this.publicRank = publicRank;
+    }
+
+    public void setPressRank(double pressRank) {
+        this.pressRank = pressRank;
+    }
+
+    public void setChanged(boolean changed) {
+        this.changed = changed;
+    }
+
+    public void setGenres(List<String> genres) {
+        this.genres = genres;
+    }
+
+    public void setSubGenres(List<String> subGenres) {
+        this.subGenres = subGenres;
+    }
+
+    public void setKeyword(List<String> keyword) {
+        this.keyword = keyword;
+    }
+
+    public void setCharacters(List<Character> characters) {
+        this.characters = characters;
+    }
+
+    public void setSeriesInfo(SeriesInfo seriesInfo) {
+        this.seriesInfo = seriesInfo;
+    }
+
     @Override
     public String toString() {
         return "ProgramInfo{" +
@@ -311,7 +399,6 @@ public class ProgramInfo implements Serializable {
                 ", characterDisplay='" + characterDisplay + '\'' +
                 ", provider='" + provider + '\'' +
                 ", externalId='" + externalId + '\'' +
-                ", changed='" + changed + '\'' +
                 ", duration='" + duration + '\'' +
                 ", countryOfOrigin='" + countryOfOrigin + '\'' +
                 ", productionDate=" + productionDate +
@@ -321,6 +408,7 @@ public class ProgramInfo implements Serializable {
                 ", subGenres=" + subGenres +
                 ", keyword=" + keyword +
                 ", characters=" + characters +
+                ", seriesInfo=" + seriesInfo +
                 '}';
     }
 }

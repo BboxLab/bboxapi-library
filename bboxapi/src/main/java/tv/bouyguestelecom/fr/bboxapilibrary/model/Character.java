@@ -57,6 +57,13 @@ public class Character implements Serializable, Comparable<Character>{
 
     @Override
     public int compareTo(Character another) {
-        return lastName.compareTo(another.getLastName());
+        if (rank > another.getRank())
+            return 1;
+
+        else if (rank < another.getRank())
+            return -1;
+
+        else
+            return 0;
     }
 }

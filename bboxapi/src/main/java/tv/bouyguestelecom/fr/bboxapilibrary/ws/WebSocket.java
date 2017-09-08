@@ -105,7 +105,7 @@ public class WebSocket {
                     }
 
                 } catch (UnsupportedEncodingException | JSONException e) {
-                    Log.e(TAG, "Error occurred", e);
+                    Log.e(TAG, "Error occured", e);
                 }
             }
 
