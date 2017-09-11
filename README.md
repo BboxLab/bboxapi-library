@@ -12,23 +12,23 @@ This is the basic SDK for your own application if you want to make use of BboxAP
 
 1 -jar file
 clone the depot and build
-add **bboxapi-library-1.3-release.aar** to your lib folder of your project
+add **bboxapi-library-1.4-release.aar** to your lib folder of your project
 add this line to your gradle dependencies  
 ````
-compile(name: 'bboxapi-library-1.3-release.aar', ext: 'aar')
+compile(name: 'bboxapi-library-1.4-release.aar', ext: 'aar')
 ````
 2 -maven
 ````
 <dependency>
   <groupId>fr.bouyguestelecom.dev</groupId>
   <artifactId>bboxapi</artifactId>
-  <version>1.3</version>
+  <version>1.4</version>
   <type>pom</type>
 </dependency>
 ````
 3 -jcenter
 ````
-compile 'fr.bouyguestelecom.dev:bboxapi:1.3'
+compile 'fr.bouyguestelecom.dev:bboxapi:1.4'
 ````
 ### Prerequisites
 
