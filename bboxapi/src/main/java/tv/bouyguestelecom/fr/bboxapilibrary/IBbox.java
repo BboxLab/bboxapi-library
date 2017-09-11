@@ -19,6 +19,7 @@ import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxGetVolume;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxMedia;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxMessage;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxRegisterApp;
+import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxSearchEpgByExternalId;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxSearchEpgBySummary;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxSendMessage;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxSetVolume;
@@ -113,6 +114,8 @@ public interface IBbox {
 
 
     void SearchEpgBySummary(String ip, String appid, String appSecret, final String token, final String period, final String profil, final int typeEpg, final String epgChannelNumber, final String longSummaryfinal, IBboxSearchEpgBySummary iBboxSearchEpgBySummary);
+
+    public void SearchEpgByExternalId(String ip, String appid, String appSecret, final String token, final String period, final String profil, final int typeEpg, final String epgChannelNumber, final String externalId, final IBboxSearchEpgByExternalId iBboxSearchEpgByExternalId);
 
     /*
 

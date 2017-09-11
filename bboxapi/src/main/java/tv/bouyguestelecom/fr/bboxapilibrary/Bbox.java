@@ -45,6 +45,7 @@ import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxGetVolume;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxMedia;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxMessage;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxRegisterApp;
+import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxSearchEpgByExternalId;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxSearchEpgBySummary;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxSendMessage;
 import tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxSetVolume;
@@ -79,8 +80,8 @@ public class Bbox implements IBbox {
     private static final String URL_SESSION_ID = URL_API_BOX + "/security/sessionId";
     private static final String URL_GET_APPLICATIONS = URL_API_BOX + "/applications";
     private static final String LOCAL_URL_GET_CHANNELS = URL_API_BOX + "/media/tvchannellist";
-   // private static final String LOCAL_URL_GET_TODAY_EPG = URL_API_BOX + "/media/programs";
-  //  private static final String LOCAL_URL_GET_EPG_BY_ID = URL_API_BOX + "/media/program";
+    // private static final String LOCAL_URL_GET_TODAY_EPG = URL_API_BOX + "/media/programs";
+    //  private static final String LOCAL_URL_GET_EPG_BY_ID = URL_API_BOX + "/media/program";
     private static final String URL_GET_CURRENT_CHANNEL = URL_API_BOX + "/media";
     private static final String URL_REGISTER_APP = URL_API_BOX + "/applications/register";
     private static final String URL_NOTIFICATION = URL_API_BOX + "/notification";
@@ -91,25 +92,19 @@ public class Bbox implements IBbox {
     private static final String URL_VOLUME = URL_API_BOX + "/userinterface/volume";
 
     private static Bbox instance;
-
+    private static int ALLEPG = 0;
+    private static int CURRENTEPG = 1;
+    private static int SELECTEDEPG = 2;
     private OkHttpClient mClient;
-
     private WebSocket mWebSocket;
-
     private String mSessionId;
     private String mToken;
     private Long mValidityToken = (long) -1;
     private Long mValiditySessionId = (long) -1;
     private boolean hasSecurity = true;
-
-
     private ListenerList<IBboxMedia> notifMedia = new ListenerList<>();
     private ListenerList<IBboxApplication> notifApps = new ListenerList<>();
     private ListenerList<IBboxMessage> notifMsg = new ListenerList<>();
-
-    private static int ALLEPG = 0;
-    private static int CURRENTEPG = 1;
-    private static int SELECTEDEPG = 2;
 
 
     private Bbox() {
@@ -199,8 +194,9 @@ public class Bbox implements IBbox {
                                         mSessionId = response.headers().get("x-sessionid");
                                         mValiditySessionId = System.currentTimeMillis() + 60 * 1000;
                                         iBboxGetSessionId.onResponse(mSessionId);
-                                    } else { int responseCode = response.code();
-                                        Log.w(TAG, "Cannot obtain bboxapi sessionId: "+responseCode);
+                                    } else {
+                                        int responseCode = response.code();
+                                        Log.w(TAG, "Cannot obtain bboxapi sessionId: " + responseCode);
                                         mSessionId = null;
                                         mValiditySessionId = (long) -1;
                                         iBboxGetSessionId.onFailure(call.request(), response.code());
@@ -600,6 +596,7 @@ public class Bbox implements IBbox {
             }
         });
     }
+
     @Override
     public void getRecommendationsTV(final String appId, final String appSecret, final String user, final Univers[] universes, final int limit,
                                      final IBboxGetRecommendationTv iBboxGetRecommendationTv) {
@@ -620,12 +617,12 @@ public class Bbox implements IBbox {
 
                     urlBuilder.addPathSegment(pathSegment);
 
-                    StringBuilder universesStr=new StringBuilder();
+                    StringBuilder universesStr = new StringBuilder();
                     for (Univers univers : universes) {
                         universesStr.append(univers.getValue());
                         universesStr.append(',');
                     }
-                    universesStr.deleteCharAt(universesStr.length()-1);
+                    universesStr.deleteCharAt(universesStr.length() - 1);
                     urlBuilder.addPathSegment(universesStr.toString());
                     urlBuilder.addQueryParameter("limit", String.valueOf(limit));
 
@@ -901,7 +898,6 @@ public class Bbox implements IBbox {
                 mWebSocketBis.close();
         }
     }
-
 
 
     private String buildJsonRequestToken(String appId, String appSecret) {
@@ -1383,7 +1379,6 @@ public class Bbox implements IBbox {
     }
 
 
-
     @Override
     public void unsubscribeNotification(final String ip, String appId, String appSecret, final String channelId,
                                         final IBboxUnsubscribe iBboxUnsubscribe) {
@@ -1475,6 +1470,113 @@ public class Bbox implements IBbox {
     }
 
 
+    @Override
+    public void SearchEpgByExternalId(String ip, String appid, String appSecret, final String token, final String period, final String profil, final int typeEpg, final String epgChannelNumber, final String externalId, final IBboxSearchEpgByExternalId iBboxSearchEpgByExternalId) {
+
+        Bbox.getInstance().getCurrentChannel(ip, appid, appSecret, new IBboxGetCurrentChannel() {
+            @Override
+            public void onResponse(Channel channel) {
+                if (channel != null && "play".equals(channel.getMediaState())) {
+                    Log.v(TAG, "Get curent channel ==>  " + channel.toString());
+                    getChanelForExternalId(token, profil, channel.getName(), period, typeEpg, epgChannelNumber, externalId, iBboxSearchEpgByExternalId);
+                }
+            }
+
+            @Override
+            public void onFailure(Request request, int i) {
+                Log.e(TAG, "Get current channels failure " + i);
+            }
+        });
+    }
+
+
+      /*
+    @epgChannelNumber set to null if @typeEpg = 0 or 1
+    @typeEpg 0 all
+             1 current channel
+             2 list epg need to set epgChannelNumber
+    */
+
+    private void getChanelForExternalId(final String token, final String profil, String name, final String period, final int typeEpg, final String epgChannelNumber, final String externalId, final IBboxSearchEpgByExternalId iBboxSearchEpgByExternalId) {
+        OkHttpClient httpClient = new OkHttpClient();
+        HttpUrl.Builder urlBuilder = HttpUrl.parse(URL_GET_CHANNELS).newBuilder();
+        urlBuilder.addQueryParameter("profil", profil);
+        urlBuilder.addQueryParameter("name", name);
+
+        Request request = new Request.Builder()
+                .url(urlBuilder.build().toString())
+                .addHeader("x-token", token)
+                .build();
+
+        Call call = httpClient.newCall(request);
+
+        call.enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(okhttp3.Call call, IOException e) {
+                Log.e(TAG, "Get ChanelForExternalId failure");
+                iBboxSearchEpgByExternalId.onFailure(call.request(), HttpURLConnection.HTTP_BAD_REQUEST);
+            }
+
+            @Override
+            public void onResponse(okhttp3.Call call, okhttp3.Response response) throws IOException {
+                if (response.code() == HttpURLConnection.HTTP_OK) {
+                    List<Channel> channels = Parser.parseChannels(response);
+
+                    if (!channels.isEmpty()) {
+                        Log.v(TAG, "Get ChanelForExternalId ==> : " + channels.toString());
+                        if (typeEpg == ALLEPG)
+                            getDetailProgramForExternalId(token, period, profil, null, externalId, iBboxSearchEpgByExternalId);
+                        else if (typeEpg == CURRENTEPG)
+                            getDetailProgramForExternalId(token, period, profil, String.valueOf(channels.get(0).getEpgChannelNumber()), externalId, iBboxSearchEpgByExternalId);
+
+                        else if (typeEpg == SELECTEDEPG)
+                            getDetailProgramForExternalId(token, period, profil, epgChannelNumber, externalId, iBboxSearchEpgByExternalId);
+
+                    }
+                }
+            }
+        });
+    }
+
+    private void getDetailProgramForExternalId(String token, String period, String profil, String epgChannelNumber, String externalId, final IBboxSearchEpgByExternalId iBboxSearchEpgByExternalId) {
+        OkHttpClient httpClient = new OkHttpClient();
+        HttpUrl.Builder urlBuilder = HttpUrl.parse(URL_GET_EPG).newBuilder();
+        urlBuilder.addQueryParameter("period", period);
+        urlBuilder.addQueryParameter("profil", profil);
+        if (epgChannelNumber != null && !epgChannelNumber.isEmpty())
+            urlBuilder.addQueryParameter("epgChannelNumber", epgChannelNumber);
+        urlBuilder.addQueryParameter("externalId", externalId);
+
+        Request request = new Request.Builder()
+                .url(urlBuilder.build().toString())
+                .addHeader("x-token", token)
+                .build();
+
+        Call call = httpClient.newCall(request);
+
+        call.enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(okhttp3.Call call, IOException e) {
+                Log.e(TAG, "Get DetailProgramForExternalId failure");
+                iBboxSearchEpgByExternalId.onFailure(call.request(), HttpURLConnection.HTTP_BAD_REQUEST);
+            }
+
+            @Override
+            public void onResponse(okhttp3.Call call, okhttp3.Response response) throws IOException {
+                if (response.code() == HttpURLConnection.HTTP_OK) {
+
+                    List<Epg> detailEpg = Parser.parseJsonListEpg(response);
+                    if (!detailEpg.isEmpty()) {
+                        Log.v(TAG, "Get DetailProgramForExternalId");
+                        iBboxSearchEpgByExternalId.onResponse(detailEpg);
+                    }
+                }
+            }
+        });
+    }
+
+
+
 
 
     /*
@@ -1503,9 +1605,9 @@ public class Bbox implements IBbox {
         });
     }
 
-    private  void getChanel(final String token, final String profil, String name, final String period, final int typeEpg, final String epgChannelNumber, final String longSummary, final IBboxSearchEpgBySummary iBboxSearchEpgBySummary) {
+    private void getChanel(final String token, final String profil, String name, final String period, final int typeEpg, final String epgChannelNumber, final String longSummary, final IBboxSearchEpgBySummary iBboxSearchEpgBySummary) {
         OkHttpClient httpClient = new OkHttpClient();
-        HttpUrl.Builder urlBuilder = HttpUrl.parse("https://api.bbox.fr/v1.3/media/channels").newBuilder();
+        HttpUrl.Builder urlBuilder = HttpUrl.parse(URL_GET_CHANNELS).newBuilder();
         urlBuilder.addQueryParameter("profil", profil);
         urlBuilder.addQueryParameter("name", name);
 
@@ -1531,7 +1633,7 @@ public class Bbox implements IBbox {
                     if (!channels.isEmpty()) {
                         Log.v(TAG, "Get channels ==> : " + channels.toString());
                         if (typeEpg == ALLEPG)
-                            getDetailProgram(token, period, profil, null, longSummary,iBboxSearchEpgBySummary);
+                            getDetailProgram(token, period, profil, null, longSummary, iBboxSearchEpgBySummary);
                         else if (typeEpg == CURRENTEPG)
                             getDetailProgram(token, period, profil, String.valueOf(channels.get(0).getEpgChannelNumber()), longSummary, iBboxSearchEpgBySummary);
 
@@ -1544,9 +1646,9 @@ public class Bbox implements IBbox {
         });
     }
 
-    private void getDetailProgram(String token, String period, String profil, String epgChannelNumber, String longSummary,final IBboxSearchEpgBySummary iBboxSearchEpgBySummary) {
+    private void getDetailProgram(String token, String period, String profil, String epgChannelNumber, String longSummary, final IBboxSearchEpgBySummary iBboxSearchEpgBySummary) {
         OkHttpClient httpClient = new OkHttpClient();
-        HttpUrl.Builder urlBuilder = HttpUrl.parse("https://api.bbox.fr/v1.3/media/live").newBuilder();
+        HttpUrl.Builder urlBuilder = HttpUrl.parse(URL_GET_EPG).newBuilder();
         urlBuilder.addQueryParameter("period", period);
         urlBuilder.addQueryParameter("profil", profil);
         if (epgChannelNumber != null && !epgChannelNumber.isEmpty())
@@ -1580,8 +1682,6 @@ public class Bbox implements IBbox {
             }
         });
     }
-
-
 
 
     private String buildJsonRequestMessage(String appId, String msg) {
