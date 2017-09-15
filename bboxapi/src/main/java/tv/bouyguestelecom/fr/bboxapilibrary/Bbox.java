@@ -1522,7 +1522,7 @@ public class Bbox implements IBbox {
                 if (response.code() == HttpURLConnection.HTTP_OK) {
                     List<Channel> channels = Parser.parseChannels(response);
 
-                    if (!channels.isEmpty()) {
+                    if (channels!= null && !channels.isEmpty()) {
                         Log.v(TAG, "Get ChanelForExternalId ==> : " + channels.toString());
                         if (typeEpg == ALLEPG)
                             getDetailProgramForExternalId(token, period, profil, null, externalId, iBboxSearchEpgByExternalId);
@@ -1566,7 +1566,7 @@ public class Bbox implements IBbox {
                 if (response.code() == HttpURLConnection.HTTP_OK) {
 
                     List<Epg> detailEpg = Parser.parseJsonListEpg(response);
-                    if (!detailEpg.isEmpty()) {
+                    if (detailEpg != null && !detailEpg.isEmpty()) {
                         Log.v(TAG, "Get DetailProgramForExternalId");
                         iBboxSearchEpgByExternalId.onResponse(detailEpg);
                     }
@@ -1574,9 +1574,6 @@ public class Bbox implements IBbox {
             }
         });
     }
-
-
-
 
 
     /*
@@ -1630,7 +1627,7 @@ public class Bbox implements IBbox {
                 if (response.code() == HttpURLConnection.HTTP_OK) {
                     List<Channel> channels = Parser.parseChannels(response);
 
-                    if (!channels.isEmpty()) {
+                    if (channels != null && !channels.isEmpty()) {
                         Log.v(TAG, "Get channels ==> : " + channels.toString());
                         if (typeEpg == ALLEPG)
                             getDetailProgram(token, period, profil, null, longSummary, iBboxSearchEpgBySummary);
@@ -1674,7 +1671,7 @@ public class Bbox implements IBbox {
                 if (response.code() == HttpURLConnection.HTTP_OK) {
 
                     List<Epg> detailEpg = Parser.parseJsonListEpg(response);
-                    if (!detailEpg.isEmpty()) {
+                    if (detailEpg != null && !detailEpg.isEmpty()) {
                         Log.v(TAG, "Get getDetailProgram");
                         iBboxSearchEpgBySummary.onResponse(detailEpg);
                     }

@@ -551,6 +551,7 @@ public class Epg implements Parcelable, Comparable<Epg> {
                 "medias=" + medias +
                 ", audioInfos=" + audioInfos +
                 ", reschedules=" + reschedules +
+                ", channel=" + channel +
                 ", programInfo=" + programInfo +
                 ", _id='" + _id + '\'' +
                 ", productId='" + productId + '\'' +
@@ -559,8 +560,8 @@ public class Epg implements Parcelable, Comparable<Epg> {
                 ", lastUpdateTime='" + lastUpdateTime + '\'' +
                 ", eventId='" + eventId + '\'' +
                 ", externalId='" + externalId + '\'' +
-                ", startTime='" + startTime + '\'' +
                 ", genre='" + genre + '\'' +
+                ", startTime='" + startTime + '\'' +
                 ", endTime='" + endTime + '\'' +
                 ", thumb='" + thumb + '\'' +
                 ", epgChannelNumber=" + epgChannelNumber +

@@ -49,6 +49,7 @@ public class Parser {
 
             } catch (JSONException | IOException e) {
                 Log.e(TAG, "Error occured", e);
+                return null;
             }
         }
 
@@ -73,6 +74,7 @@ public class Parser {
                 reader.close();
             } catch (IOException e) {
                 e.printStackTrace();
+                return null;
             }
         }
 
@@ -97,6 +99,7 @@ public class Parser {
             reader.close();
         } catch (IOException e) {
             e.printStackTrace();
+            return null;
         }
 
         return epgs;
@@ -119,6 +122,7 @@ public class Parser {
 
         } catch (IOException e) {
             e.printStackTrace();
+            return null;
         }
 
         return epgs;
@@ -159,6 +163,7 @@ public class Parser {
 
         } catch (IOException e) {
             e.printStackTrace();
+            return null;
         }
 
         Collections.sort(applications);
@@ -175,6 +180,7 @@ public class Parser {
             reader.close();
         } catch (IOException e) {
             e.printStackTrace();
+            return null;
         }
 
         return channel;
@@ -198,6 +204,7 @@ public class Parser {
                 reader.close();
             } catch (IOException e) {
                 e.printStackTrace();
+                return null;
             }
         }
 
@@ -219,6 +226,7 @@ public class Parser {
                 reader.close();
             } catch (IOException e) {
                 e.printStackTrace();
+                return null;
             }
         }
 
