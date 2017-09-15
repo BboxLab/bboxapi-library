@@ -1,9 +1,10 @@
 package tv.bouyguestelecom.fr.bboxapilibrary.model;
 
 
-import java.io.Serializable;
+import android.os.Parcel;
+import android.os.Parcelable;
 
-public class Media implements Serializable {
+public class Media implements Parcelable {
     public static final String TAG_URL = "url";
     public static final String TAG_WIDTH = "width";
     public static final String TAG_HEIGHT = "height";
@@ -23,6 +24,18 @@ public class Media implements Serializable {
         this.mediaTypeCode = mediaTypeCode;
         this.aspectRatio = aspectRatio;
     }
+
+    public static final Creator<Media> CREATOR = new Creator<Media>() {
+        @Override
+        public Media createFromParcel(Parcel in) {
+            return new Media(in);
+        }
+
+        @Override
+        public Media[] newArray(int size) {
+            return new Media[size];
+        }
+    };
 
     public String getUrl() {
         return url;
@@ -53,5 +66,27 @@ public class Media implements Serializable {
                 ", aspectRatio=" + aspectRatio +
                 ", mediaTypeCode=" + mediaTypeCode +
                 '}';
+    }
+
+    protected Media(Parcel in) {
+        url = in.readString();
+        width = in.readInt();
+        height = in.readInt();
+        mediaTypeCode = in.readInt();
+        aspectRatio = in.readDouble();
+    }
+
+    @Override
+    public void writeToParcel(Parcel parcel, int i) {
+        parcel.writeString(url);
+        parcel.writeInt(width);
+        parcel.writeInt(height);
+        parcel.writeInt(mediaTypeCode);
+        parcel.writeDouble(aspectRatio);
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
     }
 }

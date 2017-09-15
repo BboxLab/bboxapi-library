@@ -254,8 +254,8 @@ public class Epg implements Parcelable, Comparable<Epg> {
             reader.skipValue();
     }
 
-
     protected Epg(Parcel in) {
+        medias = in.createTypedArrayList(Media.CREATOR);
         channel = in.readParcelable(Channel.class.getClassLoader());
         _id = in.readString();
         productId = in.readString();
@@ -270,6 +270,30 @@ public class Epg implements Parcelable, Comparable<Epg> {
         thumb = in.readString();
         epgChannelNumber = in.readInt();
         positionId = in.readInt();
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+        dest.writeTypedList(medias);
+        dest.writeParcelable(channel, flags);
+        dest.writeString(_id);
+        dest.writeString(productId);
+        dest.writeString(title);
+        dest.writeString(parentalGuidance);
+        dest.writeString(lastUpdateTime);
+        dest.writeString(eventId);
+        dest.writeString(externalId);
+        dest.writeString(genre);
+        dest.writeString(startTime);
+        dest.writeString(endTime);
+        dest.writeString(thumb);
+        dest.writeInt(epgChannelNumber);
+        dest.writeInt(positionId);
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
     }
 
     public static final Creator<Epg> CREATOR = new Creator<Epg>() {
@@ -581,28 +605,5 @@ public class Epg implements Parcelable, Comparable<Epg> {
             return 1;
 
         return 0;
-    }
-
-    @Override
-    public int describeContents() {
-        return 0;
-    }
-
-    @Override
-    public void writeToParcel(Parcel parcel, int i) {
-        parcel.writeParcelable(channel, i);
-        parcel.writeString(_id);
-        parcel.writeString(productId);
-        parcel.writeString(title);
-        parcel.writeString(parentalGuidance);
-        parcel.writeString(lastUpdateTime);
-        parcel.writeString(eventId);
-        parcel.writeString(externalId);
-        parcel.writeString(genre);
-        parcel.writeString(startTime);
-        parcel.writeString(endTime);
-        parcel.writeString(thumb);
-        parcel.writeInt(epgChannelNumber);
-        parcel.writeInt(positionId);
     }
 }
