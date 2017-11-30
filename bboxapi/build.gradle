@@ -4,10 +4,10 @@ apply plugin: 'com.jfrog.bintray'
 
 android {
     compileSdkVersion 26
-    buildToolsVersion "26.0.1"
+    buildToolsVersion "26.0.3"
 
     defaultConfig {
-        minSdkVersion 14
+        minSdkVersion 16
         targetSdkVersion 26
         versionCode 3
         versionName "1.4"
@@ -20,8 +20,8 @@ android {
     }
 
     android.libraryVariants.all { variant ->
-        variant.outputs.each { output ->
-            output.outputFile =
+        variant.outputs.all { output ->
+            output.outputFileName =
                     new File(output.outputFile.parent,
                             output.outputFile.name.replace("bboxapi-", "bboxapi-library-" + defaultConfig.versionName + "-"))
         }
@@ -33,9 +33,8 @@ android {
 }
 
 dependencies {
-    compile 'org.java-websocket:Java-WebSocket:1.3.0'
-    compile 'com.squareup.okhttp3:okhttp:3.9.0'
-    compile 'com.github.rickyclarkson:jmdns:3.4.2-r353-1'
+    compile 'org.java-websocket:Java-WebSocket:1.3.6'
+    compile 'com.squareup.okhttp3:okhttp:3.9.1'
 }
 
 def siteUrl = 'https://github.com/BboxLab/bboxapi-library'

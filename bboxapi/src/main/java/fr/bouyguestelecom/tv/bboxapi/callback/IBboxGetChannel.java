@@ -1,0 +1,12 @@
+package fr.bouyguestelecom.tv.bboxapi.callback;
+
+
+import okhttp3.Request;
+import fr.bouyguestelecom.tv.bboxapi.model.Channel;
+
+public interface IBboxGetChannel {
+
+    void onResponse(Channel channel);
+
+    void onFailure(Request request, int errorCode);
+}

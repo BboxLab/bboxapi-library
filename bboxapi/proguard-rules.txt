@@ -16,5 +16,5 @@
 #   public *;
 #}
 
-#-keep public class * extends tv.bouyguestelecom.fr.bboxapilibrary.callback.IBboxSubscribe
-#-keep public class * extends tv.bouyguestelecom.fr.bboxapilibrary.ws.WebSocket
+#-keep public class * extends fr.bouyguestelecom.tv.bboxapilibrary.callback.IBboxSubscribe
+#-keep public class * extends fr.bouyguestelecom.tv.bboxapilibrary.ws.WebSocket
