@@ -48,6 +48,8 @@ public class BboxCloud implements IBboxCloud {
     private static final String URL_GET_EPG_SIMPLE = "https://api.bbox.fr/" + VERSION + "/media/live/epg";
     private static final String URL_GET_CHANNELS = "https://api.bbox.fr/" + VERSION + "/media/channels";
 
+    private static BboxCloud instance;
+
     private final String appId;
     private final String appSecret;
 
@@ -64,6 +66,13 @@ public class BboxCloud implements IBboxCloud {
                 .writeTimeout(15, TimeUnit.SECONDS).readTimeout(15, TimeUnit.SECONDS)
                 .connectionPool(new ConnectionPool(1, 5, TimeUnit.MINUTES))
                 .build();
+    }
+
+    public static synchronized BboxCloud getInstance(String appId, String appSecret) {
+        if (instance == null) {
+            instance = new BboxCloud(appId, appSecret);
+        }
+        return instance;
     }
 
     private String buildJsonRequestToken(String appId, String appSecret) {
