@@ -130,6 +130,10 @@ public class Bbox implements IBbox {
         return instance;
     }
 
+    public String getIp() {
+        return ip;
+    }
+
     public Call getToken(final IBboxGetToken iBboxGetToken) {
         if (mValidityToken == -1 || mValidityToken <= System.currentTimeMillis()) {
             RequestBody body = RequestBody.create(JSON, buildJsonRequestToken(appId, appSecret));
@@ -1247,11 +1251,14 @@ public class Bbox implements IBbox {
                                 Log.i(TAG, "BboxapiWebSocket found " + serviceInfo.getHost() + ':' + serviceInfo.getPort());
                             } else {
                                 Log.i(TAG, "BboxapiWebSocket found " + serviceInfo.getHost() + ':' + serviceInfo.getPort() + ". Wait for Bboxapi to be discovered");
-                                new AsyncTask() {
+                                new AsyncTask<Void, Void, Bbox>() {
                                     @Override
-                                    protected Object doInBackground(Object[] objects) {
-                                        getInstance(true).wsPort = serviceInfo.getPort();
-                                        return null;
+                                    protected Bbox doInBackground(Void... voids) {
+                                        Bbox bbox = getInstance(true);
+                                        if (bbox != null) {
+                                            bbox.wsPort = serviceInfo.getPort();
+                                        }
+                                        return bbox;
                                     }
                                 }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
                             }
