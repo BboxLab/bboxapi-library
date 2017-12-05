@@ -5,8 +5,6 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.nsd.NsdManager;
 import android.net.nsd.NsdServiceInfo;
-import android.os.AsyncTask;
-import android.os.ConditionVariable;
 import android.util.Log;
 
 import org.json.JSONArray;
@@ -56,7 +54,6 @@ import fr.bouyguestelecom.tv.bboxapi.util.ListenerList;
 import fr.bouyguestelecom.tv.bboxapi.util.Parser;
 import fr.bouyguestelecom.tv.bboxapi.ws.WebSocket;
 
-
 public class Bbox implements IBbox {
     public interface DiscoveryListener {
         public void bboxFound(Bbox bbox);
@@ -86,10 +83,8 @@ public class Bbox implements IBbox {
     private static final String URL_VOLUME = URL_API_BOX + "/userinterface/volume";
 
     private static Bbox instance;
-    private static final ConditionVariable instanceLock = new ConditionVariable();
-    private static int ALLEPG = 0;
-    private static int CURRENTEPG = 1;
-    private static int SELECTEDEPG = 2;
+    private static final CountDownLatch instanceLock = new CountDownLatch(2);
+    private static int discoveredWsPort = 9090;
 
     private final String ip;
     private final int httpPort;
@@ -122,11 +117,14 @@ public class Bbox implements IBbox {
 
     public static Bbox getInstance(boolean wait) {
         if (instance == null && wait) {
-            if (!instanceLock.block(30000)) {
-                Log.w(TAG, "Cannot find Bbox in 30 seconds", new TimeoutException("Cannot find Bbox in 30 seconds"));
+            try {
+                if (!instanceLock.await(30, TimeUnit.SECONDS)) {
+                    Log.w(TAG, "Cannot find Bbox in 30 seconds", new TimeoutException("Cannot find Bbox in 30 seconds"));
+                }
+            } catch (InterruptedException e) {
+                Log.w(TAG, "Wait for Bbox interrupted", e);
             }
         }
-
         return instance;
     }
 
@@ -1194,12 +1192,14 @@ public class Bbox implements IBbox {
 
                         @Override
                         public void onServiceResolved(NsdServiceInfo serviceInfo) {
-                            if (instance == null) {
-                                instance = new Bbox(appId, appSecret, serviceInfo.getHost().getHostAddress(), serviceInfo.getPort(), 9090);
-                                instanceLock.open();
-                                if (discoveryListener != null) {
-                                    discoveryListener.bboxFound(instance);
-                                }
+                            int httpPort = serviceInfo.getPort();
+                            instance = new Bbox(appId, appSecret, serviceInfo.getHost().getHostAddress(), httpPort, discoveredWsPort);
+                            instanceLock.countDown();
+                            if (httpPort == 8080) {
+                                instanceLock.countDown();
+                            }
+                            if (instanceLock.getCount() == 0 && discoveryListener != null) {
+                                discoveryListener.bboxFound(instance);
                             } else {
                                 Log.i(TAG, "Ignore Bboxapi on " + serviceInfo.getHost() + ':' + serviceInfo.getPort());
                             }
@@ -1246,21 +1246,17 @@ public class Bbox implements IBbox {
 
                         @Override
                         public void onServiceResolved(final NsdServiceInfo serviceInfo) {
+                            discoveredWsPort = serviceInfo.getPort();
                             if (instance != null) {
-                                instance.wsPort = serviceInfo.getPort();
+                                instance.wsPort = discoveredWsPort;
                                 Log.i(TAG, "BboxapiWebSocket found " + serviceInfo.getHost() + ':' + serviceInfo.getPort());
+                                instanceLock.countDown();
+                                if (instanceLock.getCount() == 0 && discoveryListener != null) {
+                                    discoveryListener.bboxFound(instance);
+                                }
                             } else {
-                                Log.i(TAG, "BboxapiWebSocket found " + serviceInfo.getHost() + ':' + serviceInfo.getPort() + ". Wait for Bboxapi to be discovered");
-                                new AsyncTask<Void, Void, Bbox>() {
-                                    @Override
-                                    protected Bbox doInBackground(Void... voids) {
-                                        Bbox bbox = getInstance(true);
-                                        if (bbox != null) {
-                                            bbox.wsPort = serviceInfo.getPort();
-                                        }
-                                        return bbox;
-                                    }
-                                }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+                                Log.i(TAG, "BboxapiWebSocket found " + serviceInfo.getHost() + ':' + serviceInfo.getPort() + ". Wait for Bboxapi HTTP to be discovered");
+                                instanceLock.countDown();
                             }
                         }
                     });
