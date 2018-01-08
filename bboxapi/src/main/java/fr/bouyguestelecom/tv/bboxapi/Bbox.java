@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.nsd.NsdManager;
 import android.net.nsd.NsdServiceInfo;
+import android.os.ConditionVariable;
 import android.util.Log;
 
 import org.json.JSONArray;
@@ -83,8 +84,7 @@ public class Bbox implements IBbox {
     private static final String URL_VOLUME = URL_API_BOX + "/userinterface/volume";
 
     private static Bbox instance;
-    private static final CountDownLatch instanceLock = new CountDownLatch(2);
-    private static int discoveredWsPort = 9090;
+    private static final ConditionVariable instanceLock = new ConditionVariable();
 
     private final String ip;
     private final int httpPort;
@@ -117,12 +117,8 @@ public class Bbox implements IBbox {
 
     public static Bbox getInstance(boolean wait) {
         if (instance == null && wait) {
-            try {
-                if (!instanceLock.await(30, TimeUnit.SECONDS)) {
-                    Log.w(TAG, "Cannot find Bbox in 30 seconds", new TimeoutException("Cannot find Bbox in 30 seconds"));
-                }
-            } catch (InterruptedException e) {
-                Log.w(TAG, "Wait for Bbox interrupted", e);
+            if (!instanceLock.block(30000)) {
+                Log.w(TAG, "Cannot find Bbox in 30 seconds", new TimeoutException("Cannot find Bbox in 30 seconds"));
             }
         }
         return instance;
@@ -171,9 +167,7 @@ public class Bbox implements IBbox {
             iBboxGetToken.onResponse(mToken);
             return null;
         }
-
     }
-
 
     public void getSessionId(final IBboxGetSessionId iBboxGetSessionId) {
         if (hasSecurity) {
@@ -1157,6 +1151,112 @@ public class Bbox implements IBbox {
         return notifMsg;
     }
 
+    private static class WsResolveListener implements NsdManager.ResolveListener {
+        private final NsdManager nsdManager;
+        private final NsdManager.DiscoveryListener wsDiscoveryListener;
+        private final DiscoveryListener bboxDiscoveryListener;
+        private final String appId;
+        private final String appSecret;
+        private final int httpPort;
+
+        public WsResolveListener(NsdManager nsdManager, NsdManager.DiscoveryListener wsDiscoveryListener, DiscoveryListener bboxDiscoveryListener, final String appId, final String appSecret, int httpPort) {
+            this.nsdManager = nsdManager;
+            this.wsDiscoveryListener = wsDiscoveryListener;
+            this.bboxDiscoveryListener = bboxDiscoveryListener;
+            this.appId = appId;
+            this.appSecret = appSecret;
+            this.httpPort = httpPort;
+        }
+
+
+        @Override
+        public void onResolveFailed(NsdServiceInfo serviceInfo, int errorCode) {
+
+        }
+
+        @Override
+        public void onServiceResolved(final NsdServiceInfo serviceInfo) {
+            Log.i(TAG, "BboxapiWebSocket found " + serviceInfo.getHost() + ':' + serviceInfo.getPort());
+            nsdManager.stopServiceDiscovery(wsDiscoveryListener);
+            instance = new Bbox(appId, appSecret, serviceInfo.getHost().getHostAddress(), httpPort, serviceInfo.getPort());
+            instanceLock.open();
+            if (bboxDiscoveryListener != null) {
+                bboxDiscoveryListener.bboxFound(instance);
+            }
+        }
+    }
+
+    private static class HttpResolveListener implements NsdManager.ResolveListener {
+        private final NsdManager nsdManager;
+        private final NsdManager.DiscoveryListener httpDiscoveryListener;
+        private final DiscoveryListener bboxDiscoveryListener;
+        private final String appId;
+        private final String appSecret;
+
+        public HttpResolveListener(NsdManager nsdManager, NsdManager.DiscoveryListener httpDiscoveryListener, DiscoveryListener bboxDiscoveryListener, final String appId, final String appSecret) {
+            this.nsdManager = nsdManager;
+            this.httpDiscoveryListener = httpDiscoveryListener;
+            this.bboxDiscoveryListener = bboxDiscoveryListener;
+            this.appId = appId;
+            this.appSecret = appSecret;
+        }
+
+        @Override
+        public void onResolveFailed(NsdServiceInfo serviceInfo, int errorCode) {
+
+        }
+
+        @Override
+        public void onServiceResolved(NsdServiceInfo serviceInfo) {
+            final int httpPort = serviceInfo.getPort();
+            if (httpPort == 8080) {
+                Log.i(TAG, "Bboxapi found " + serviceInfo.getHost() + ':' + serviceInfo.getPort());
+                nsdManager.stopServiceDiscovery(httpDiscoveryListener);
+                instance = new Bbox(appId, appSecret, serviceInfo.getHost().getHostAddress(), httpPort, 9090);
+                instanceLock.open();
+                if (bboxDiscoveryListener != null) {
+                    bboxDiscoveryListener.bboxFound(instance);
+                }
+            } else {
+                Log.i(TAG, "Bboxapi found " + serviceInfo.getHost() + ':' + serviceInfo.getPort() + ". Wait for Bboxapi WebSocket to be discovered");
+                nsdManager.stopServiceDiscovery(httpDiscoveryListener);
+                nsdManager.discoverServices("_ws._tcp.", NsdManager.PROTOCOL_DNS_SD, new NsdManager.DiscoveryListener() {
+                    @Override
+                    public void onStartDiscoveryFailed(String serviceType, int errorCode) {
+
+                    }
+
+                    @Override
+                    public void onStopDiscoveryFailed(String serviceType, int errorCode) {
+
+                    }
+
+                    @Override
+                    public void onDiscoveryStarted(String serviceType) {
+
+                    }
+
+                    @Override
+                    public void onDiscoveryStopped(String serviceType) {
+
+                    }
+
+                    @Override
+                    public void onServiceFound(NsdServiceInfo serviceInfo) {
+                        if ("BboxapiWebSocket".equals(serviceInfo.getServiceName())) {
+                            nsdManager.resolveService(serviceInfo, new WsResolveListener(nsdManager, this, bboxDiscoveryListener, appId, appSecret, httpPort));
+                        }
+                    }
+
+                    @Override
+                    public void onServiceLost(NsdServiceInfo serviceInfo) {
+
+                    }
+                });
+            }
+        }
+    }
+
     public static void discoverBboxApi(final Context context, final String appId, final String appSecret, final DiscoveryListener discoveryListener) {
         final NsdManager nsdManager = (NsdManager) context.getSystemService(Context.NSD_SERVICE);
         nsdManager.discoverServices("_http._tcp.", NsdManager.PROTOCOL_DNS_SD, new NsdManager.DiscoveryListener() {
@@ -1184,82 +1284,7 @@ public class Bbox implements IBbox {
             public void onServiceFound(NsdServiceInfo serviceInfo) {
                 String serviceName = serviceInfo.getServiceName();
                 if ("Bboxapi".equals(serviceName)) {
-                    nsdManager.resolveService(serviceInfo, new NsdManager.ResolveListener() {
-                        @Override
-                        public void onResolveFailed(NsdServiceInfo serviceInfo, int errorCode) {
-
-                        }
-
-                        @Override
-                        public void onServiceResolved(NsdServiceInfo serviceInfo) {
-                            int httpPort = serviceInfo.getPort();
-                            instance = new Bbox(appId, appSecret, serviceInfo.getHost().getHostAddress(), httpPort, discoveredWsPort);
-                            instanceLock.countDown();
-                            if (httpPort == 8080) {
-                                instanceLock.countDown();
-                            }
-                            if (instanceLock.getCount() == 0 && discoveryListener != null) {
-                                discoveryListener.bboxFound(instance);
-                            } else {
-                                Log.i(TAG, "Ignore Bboxapi on " + serviceInfo.getHost() + ':' + serviceInfo.getPort());
-                            }
-                        }
-                    });
-                }
-            }
-
-            @Override
-            public void onServiceLost(NsdServiceInfo serviceInfo) {
-
-            }
-        });
-        nsdManager.discoverServices("_ws._tcp.", NsdManager.PROTOCOL_DNS_SD, new NsdManager.DiscoveryListener() {
-            @Override
-            public void onStartDiscoveryFailed(String serviceType, int errorCode) {
-
-            }
-
-            @Override
-            public void onStopDiscoveryFailed(String serviceType, int errorCode) {
-
-            }
-
-            @Override
-            public void onDiscoveryStarted(String serviceType) {
-
-            }
-
-            @Override
-            public void onDiscoveryStopped(String serviceType) {
-
-            }
-
-            @Override
-            public void onServiceFound(NsdServiceInfo serviceInfo) {
-                if ("BboxapiWebSocket".equals(serviceInfo.getServiceName())) {
-                    nsdManager.resolveService(serviceInfo, new NsdManager.ResolveListener() {
-
-                        @Override
-                        public void onResolveFailed(NsdServiceInfo serviceInfo, int errorCode) {
-
-                        }
-
-                        @Override
-                        public void onServiceResolved(final NsdServiceInfo serviceInfo) {
-                            discoveredWsPort = serviceInfo.getPort();
-                            if (instance != null) {
-                                instance.wsPort = discoveredWsPort;
-                                Log.i(TAG, "BboxapiWebSocket found " + serviceInfo.getHost() + ':' + serviceInfo.getPort());
-                                instanceLock.countDown();
-                                if (instanceLock.getCount() == 0 && discoveryListener != null) {
-                                    discoveryListener.bboxFound(instance);
-                                }
-                            } else {
-                                Log.i(TAG, "BboxapiWebSocket found " + serviceInfo.getHost() + ':' + serviceInfo.getPort() + ". Wait for Bboxapi HTTP to be discovered");
-                                instanceLock.countDown();
-                            }
-                        }
-                    });
+                    nsdManager.resolveService(serviceInfo, new HttpResolveListener(nsdManager, this, discoveryListener, appId, appSecret));
                 }
             }
 
