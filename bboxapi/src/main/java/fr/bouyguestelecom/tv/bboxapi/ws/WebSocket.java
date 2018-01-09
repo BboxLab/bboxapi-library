@@ -28,7 +28,6 @@ import fr.bouyguestelecom.tv.bboxapi.model.Resource;
 public class WebSocket {
     private static final String TAG = WebSocket.class.getSimpleName();
     private static final String WEBSOCKET_PREFIX = "ws://";
-    private static final String WEBSOCKET_PORT = "9090";
     private static WebSocket instance = null;
     private WebSocketClient mWebSocketClient;
     private Bbox bbox;

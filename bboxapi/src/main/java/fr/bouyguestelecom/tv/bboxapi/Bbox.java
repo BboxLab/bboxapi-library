@@ -155,7 +155,7 @@ public class Bbox implements IBbox {
                         mToken = tokenCloud;
                     } else {
                         iBboxGetToken.onFailure(call.request(), response.code());
-                        Log.e(TAG, "Get token failed");
+                        Log.e(TAG, "Get token failed: " + response.code());
                     }
 
                     response.body().close();
@@ -1157,17 +1157,16 @@ public class Bbox implements IBbox {
         private final DiscoveryListener bboxDiscoveryListener;
         private final String appId;
         private final String appSecret;
-        private final int httpPort;
+        private final NsdServiceInfo httpServiceInfo;
 
-        public WsResolveListener(NsdManager nsdManager, NsdManager.DiscoveryListener wsDiscoveryListener, DiscoveryListener bboxDiscoveryListener, final String appId, final String appSecret, int httpPort) {
+        public WsResolveListener(NsdManager nsdManager, NsdManager.DiscoveryListener wsDiscoveryListener, DiscoveryListener bboxDiscoveryListener, final String appId, final String appSecret, NsdServiceInfo httpServiceInfo) {
             this.nsdManager = nsdManager;
             this.wsDiscoveryListener = wsDiscoveryListener;
             this.bboxDiscoveryListener = bboxDiscoveryListener;
             this.appId = appId;
             this.appSecret = appSecret;
-            this.httpPort = httpPort;
+            this.httpServiceInfo = httpServiceInfo;
         }
-
 
         @Override
         public void onResolveFailed(NsdServiceInfo serviceInfo, int errorCode) {
@@ -1176,12 +1175,16 @@ public class Bbox implements IBbox {
 
         @Override
         public void onServiceResolved(final NsdServiceInfo serviceInfo) {
-            Log.i(TAG, "BboxapiWebSocket found " + serviceInfo.getHost() + ':' + serviceInfo.getPort());
-            nsdManager.stopServiceDiscovery(wsDiscoveryListener);
-            instance = new Bbox(appId, appSecret, serviceInfo.getHost().getHostAddress(), httpPort, serviceInfo.getPort());
-            instanceLock.open();
-            if (bboxDiscoveryListener != null) {
-                bboxDiscoveryListener.bboxFound(instance);
+            if (httpServiceInfo.getHost().equals(serviceInfo.getHost())) {
+                Log.i(TAG, "BboxapiWebSocket found " + serviceInfo.getHost() + ':' + serviceInfo.getPort());
+                nsdManager.stopServiceDiscovery(wsDiscoveryListener);
+                instance = new Bbox(appId, appSecret, serviceInfo.getHost().getHostAddress(), httpServiceInfo.getPort(), serviceInfo.getPort());
+                instanceLock.open();
+                if (bboxDiscoveryListener != null) {
+                    bboxDiscoveryListener.bboxFound(instance);
+                }
+            } else {
+                Log.i(TAG, "Ignore BboxapiWebSocket " + serviceInfo.getHost() + ':' + serviceInfo.getPort());
             }
         }
     }
@@ -1207,18 +1210,18 @@ public class Bbox implements IBbox {
         }
 
         @Override
-        public void onServiceResolved(NsdServiceInfo serviceInfo) {
-            final int httpPort = serviceInfo.getPort();
+        public void onServiceResolved(final NsdServiceInfo httpServiceInfo) {
+            final int httpPort = httpServiceInfo.getPort();
             if (httpPort == 8080) {
-                Log.i(TAG, "Bboxapi found " + serviceInfo.getHost() + ':' + serviceInfo.getPort());
+                Log.i(TAG, "Bboxapi found " + httpServiceInfo.getHost() + ':' + httpServiceInfo.getPort());
                 nsdManager.stopServiceDiscovery(httpDiscoveryListener);
-                instance = new Bbox(appId, appSecret, serviceInfo.getHost().getHostAddress(), httpPort, 9090);
+                instance = new Bbox(appId, appSecret, httpServiceInfo.getHost().getHostAddress(), httpPort, 9090);
                 instanceLock.open();
                 if (bboxDiscoveryListener != null) {
                     bboxDiscoveryListener.bboxFound(instance);
                 }
             } else {
-                Log.i(TAG, "Bboxapi found " + serviceInfo.getHost() + ':' + serviceInfo.getPort() + ". Wait for Bboxapi WebSocket to be discovered");
+                Log.i(TAG, "Bboxapi found " + httpServiceInfo.getHost() + ':' + httpServiceInfo.getPort() + ". Wait for Bboxapi WebSocket to be discovered");
                 nsdManager.stopServiceDiscovery(httpDiscoveryListener);
                 nsdManager.discoverServices("_ws._tcp.", NsdManager.PROTOCOL_DNS_SD, new NsdManager.DiscoveryListener() {
                     @Override
@@ -1242,9 +1245,9 @@ public class Bbox implements IBbox {
                     }
 
                     @Override
-                    public void onServiceFound(NsdServiceInfo serviceInfo) {
-                        if ("BboxapiWebSocket".equals(serviceInfo.getServiceName())) {
-                            nsdManager.resolveService(serviceInfo, new WsResolveListener(nsdManager, this, bboxDiscoveryListener, appId, appSecret, httpPort));
+                    public void onServiceFound(NsdServiceInfo wsServiceInfo) {
+                        if ("BboxapiWebSocket".equals(wsServiceInfo.getServiceName())) {
+                            nsdManager.resolveService(wsServiceInfo, new WsResolveListener(nsdManager, this, bboxDiscoveryListener, appId, appSecret, httpServiceInfo));
                         }
                     }
 
