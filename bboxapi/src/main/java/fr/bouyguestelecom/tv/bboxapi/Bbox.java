@@ -341,10 +341,10 @@ public class Bbox implements IBbox {
                                     iBboxGetCurrentChannel.onFailure(call.request(), response.code());
                                 }
                             });
-                        }
-                        else
+                        } else {
+                            Log.e(TAG, "Cannot get current channel: " + response.body().string());
                             iBboxGetCurrentChannel.onFailure(call.request(), response.code());
-
+                        }
                         response.body().close();
                     }
                 });
