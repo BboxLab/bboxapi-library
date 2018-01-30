@@ -150,8 +150,9 @@ public class Bbox implements IBbox {
                             && response.headers().get("x-token") != null
                             && !response.headers().get("x-token").isEmpty()) {
                         String tokenCloud = response.headers().get("x-token");
+                        String tokenValidity = response.headers().get("x-token-validity");
                         iBboxGetToken.onResponse(tokenCloud);
-                        mValidityToken = System.currentTimeMillis() + 24 * 60 * 60 * 1000;
+                        mValidityToken = Long.parseLong(tokenValidity);
                         mToken = tokenCloud;
                     } else {
                         iBboxGetToken.onFailure(call.request(), response.code());
