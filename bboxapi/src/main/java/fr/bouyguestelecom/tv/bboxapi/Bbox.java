@@ -1266,7 +1266,7 @@ public class Bbox implements IBbox {
         nsdManager.discoverServices("_http._tcp.", NsdManager.PROTOCOL_DNS_SD, new NsdManager.DiscoveryListener() {
             @Override
             public void onStartDiscoveryFailed(String serviceType, int errorCode) {
-
+                Log.w(TAG, "Discovery start failed " + serviceType + ": " + errorCode);
             }
 
             @Override
@@ -1287,7 +1287,7 @@ public class Bbox implements IBbox {
             @Override
             public void onServiceFound(NsdServiceInfo serviceInfo) {
                 String serviceName = serviceInfo.getServiceName();
-                if ("Bboxapi".equals(serviceName)) {
+                if (serviceName.startsWith("Bboxapi")) {
                     nsdManager.resolveService(serviceInfo, new HttpResolveListener(nsdManager, this, discoveryListener, appId, appSecret));
                 }
             }
