@@ -10,7 +10,7 @@ android {
         minSdkVersion 16
         targetSdkVersion 27
         versionCode 3
-        versionName "1.4"
+        versionName "1.5"
     }
     buildTypes {
         release {
@@ -71,7 +71,7 @@ bintray {
 
             gpg {
                 sign = true
-                passphrase = "$System.env.GPG_PASSPHRASE"
+                passphrase = "$System.env.GPG_BBOXLAB_PASSPHRASE"
             }
 
             mavenCentralSync {
@@ -105,6 +105,11 @@ install {
                         id 'gun95'
                         name 'Redouane Messara'
                         email 'redouane.messara@epitech.eu'
+                    }
+                    developer {
+                        id 'bertrandmartel'
+                        name 'Bertrand Martel'
+                        email 'bmartel.fr@gmail.com'
                     }
                 }
                 scm {
