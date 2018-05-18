@@ -10,7 +10,7 @@ android {
         minSdkVersion 16
         targetSdkVersion 27
         versionCode 3
-        versionName "1.5"
+        versionName "1.5.1"
     }
     buildTypes {
         release {
@@ -33,8 +33,8 @@ android {
 }
 
 dependencies {
-    compile 'org.java-websocket:Java-WebSocket:1.3.7'
-    compile 'com.squareup.okhttp3:okhttp:3.9.1'
+    implementation 'org.java-websocket:Java-WebSocket:1.3.7'
+    implementation 'com.squareup.okhttp3:okhttp:3.9.1'
 }
 
 def siteUrl = 'https://github.com/BboxLab/bboxapi-library'
