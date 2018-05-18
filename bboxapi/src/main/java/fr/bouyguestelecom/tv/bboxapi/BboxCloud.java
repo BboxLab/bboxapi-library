@@ -172,7 +172,7 @@ public class BboxCloud implements IBboxCloud {
             @Override
             public void onResponse(String token) {
                 HttpUrl.Builder urlBuilder = HttpUrl.parse(URL_GET_CHANNELS).newBuilder();
-                urlBuilder.addQueryParameter("profil", profil.getValue());
+                urlBuilder.addQueryParameter("profile", profil.getValue());
 
                 Request request = new Request.Builder()
                         .url(urlBuilder.build().toString())
